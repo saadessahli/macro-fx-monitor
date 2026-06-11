@@ -16,6 +16,7 @@ dist/
 .codex-*
 .gh-auth.*
 .gh-scope.*
+.vercel-login.*
 .vercel/
 
 # Operating systems and editors
