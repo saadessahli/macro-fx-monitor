@@ -10,9 +10,21 @@ export default function PrivacyPage() {
         <h1>Privacy Policy</h1>
         <p>Last updated: June 11, 2026</p>
         <h3>Information collected</h3>
-        <p>The newsletter form collects the email address you submit. Basic technical information may be processed for security, spam prevention, and aggregate site operation.</p>
+        <p>
+          If newsletter signup is enabled, the form collects the email address you submit. Basic technical
+          information may also be processed for security, spam prevention, and aggregate site operation.
+        </p>
+        <h3>Web analytics</h3>
+        <p>
+          The site uses Vercel Web Analytics for aggregate traffic measurement. It does not use analytics cookies,
+          and Vercel states that the collected analytics data is anonymized and is not designed to identify an
+          individual visitor across websites.
+        </p>
         <h3>How information is used</h3>
-        <p>Your email is used only to manage your subscription and deliver requested macro snapshots. It is not sold.</p>
+        <p>
+          If provided, your email is used only to manage your subscription and deliver requested macro snapshots.
+          It is not sold.
+        </p>
         <h3>Service providers</h3>
         <p>Hosting, newsletter delivery, database storage, and operational analytics may be provided by third-party processors identified in the project documentation.</p>
         <h3>Your choices</h3>
