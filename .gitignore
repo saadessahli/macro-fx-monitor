@@ -1,0 +1,30 @@
+# Dependencies and builds
+node_modules/
+.next/
+out/
+dist/
+*.tsbuildinfo
+
+# Environment variables and secrets
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# Local logs and tooling
+*.log
+.codex-*
+.gh-auth.*
+.gh-scope.*
+.vercel/
+
+# Operating systems and editors
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# Temporary research captures
+te_*.html
+mc_*.html
+mc_api_*.json
