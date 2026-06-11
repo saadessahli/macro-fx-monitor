@@ -55,6 +55,10 @@ Use the generated `*.vercel.app` URL to remain completely free.
 After deployment, update `SITE_URL` in GitHub Actions secrets and run each
 snapshot workflow manually once.
 
+Set the GitHub Actions repository variable `SNAPSHOT_PUBLISHING_ENABLED` to
+`true` only after Buttondown, Supabase, and `CRON_SECRET` are configured.
+Scheduled snapshot jobs remain skipped until then.
+
 ## 5. Secret Rotation
 
 The FRED key used during local development should be rotated before the

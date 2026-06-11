@@ -17,15 +17,15 @@ and produces:
 - a weekly macro snapshot
 - a conditional DXY playbook with confirmation and invalidation
 
-I also built a free newsletter workflow so readers can receive the latest
-snapshot without needing to monitor every release individually.
+I also built a newsletter-ready workflow for delivering the latest snapshot
+without requiring readers to monitor every release individually.
 
 The full project is public and built with Next.js, TypeScript, FRED data,
 Supabase, Buttondown, GitHub Actions, and Vercel.
 
-Live dashboard: **[DEPLOYMENT_URL]**
+Live dashboard: **https://macro-fx-monitor.vercel.app**
 
-GitHub repository: **[GITHUB_URL]**
+GitHub repository: **https://github.com/saadessahli/macro-fx-monitor**
 
 This is an educational research tool, not financial advice. I would genuinely
 value feedback from macro traders, developers, and data professionals.

@@ -16,7 +16,11 @@ The project includes:
 
 ## Live Demo
 
-The production URL will be added after the first Vercel deployment.
+[macro-fx-monitor.vercel.app](https://macro-fx-monitor.vercel.app)
+
+## Repository
+
+[github.com/saadessahli/macro-fx-monitor](https://github.com/saadessahli/macro-fx-monitor)
 
 ## Product Preview
 

@@ -29,3 +29,5 @@ Thumbs.db
 te_*.html
 mc_*.html
 mc_api_*.json
+
+.vercel
