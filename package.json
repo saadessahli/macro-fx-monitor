@@ -10,6 +10,8 @@
     "lint": "eslint app components lib types next.config.ts --max-warnings=0"
   },
   "dependencies": {
+    "@supabase/ssr": "^0.12.0",
+    "@supabase/supabase-js": "^2.108.1",
     "@vercel/analytics": "^2.0.1",
     "lucide-react": "^0.511.0",
     "next": "^15.5.19",

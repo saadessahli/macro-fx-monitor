@@ -29,6 +29,17 @@ unsubscribe link in sent newsletters.
 
 The service-role key is server-only. Never use a `NEXT_PUBLIC_` prefix.
 
+For the private admin workspace:
+
+1. Enable Email authentication in Supabase Auth.
+2. Create one email/password user for the administrator.
+3. Copy the project's anon key.
+4. Save it as `SUPABASE_ANON_KEY`.
+5. Save the administrator's exact email as `ADMIN_EMAIL`.
+
+The login flow runs on the server. Do not use a `NEXT_PUBLIC_` prefix for
+`ADMIN_EMAIL`, `SUPABASE_ANON_KEY`, or the service-role key.
+
 ## 3. GitHub
 
 Create a public repository and add these Actions secrets:
@@ -48,7 +59,9 @@ Import the GitHub repository into Vercel Hobby and configure:
 - `FRED_API_KEY`
 - `BUTTONDOWN_API_KEY`
 - `SUPABASE_URL`
+- `SUPABASE_ANON_KEY`
 - `SUPABASE_SERVICE_ROLE_KEY`
+- `ADMIN_EMAIL`
 - `CRON_SECRET`
 - `NEXT_PUBLIC_SITE_URL`
 - `NEXT_PUBLIC_REPOSITORY_URL`

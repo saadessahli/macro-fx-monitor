@@ -195,3 +195,11 @@ export type MacroSnapshot = {
   recentReleases: SnapshotDriver[];
   upcomingCalendar: EconomicCalendarEvent[];
 };
+
+export type MarketingDraft = {
+  id: string;
+  channel: string;
+  title: string;
+  body: string;
+  note: string;
+};

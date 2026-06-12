@@ -53,6 +53,7 @@ The project includes:
 - FRED API and public economic sources
 - Supabase Free for generated snapshot persistence
 - Buttondown for double-opt-in newsletter delivery
+- Supabase Auth for the private admin workspace
 - GitHub Actions for free scheduled publishing
 - Vercel Hobby for public hosting
 
@@ -117,6 +118,30 @@ the provider-managed unsubscribe link.
 ## Deployment
 
 See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
+
+## Private Admin
+
+The public dashboard does not expose admin navigation. `/login` uses
+server-rendered Supabase password authentication, and `/admin/*` requires both
+an authenticated session and an exact match with the server-only `ADMIN_EMAIL`.
+
+Required Vercel variables:
+
+```text
+SUPABASE_URL=your_supabase_project_url
+SUPABASE_ANON_KEY=your_supabase_anon_key
+ADMIN_EMAIL=your_admin_email@example.com
+```
+
+Create the administrator as an email/password user in Supabase Auth. Keep
+`ADMIN_EMAIL`, `SUPABASE_ANON_KEY`, and `SUPABASE_SERVICE_ROLE_KEY` free of the
+`NEXT_PUBLIC_` prefix. The service-role key is not used by the browser or login
+form. Administrator invitations return through `/auth/callback` to the private
+`/set-password` activation page.
+
+The first private feature is `/admin/marketing`, a review-only Marketing Agent
+that converts the latest macro snapshot into LinkedIn, X, and newsletter
+drafts. It never publishes content automatically.
 
 ## Data and Legal Notice
 
