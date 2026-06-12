@@ -92,7 +92,7 @@ repository is made public, even though `.env.local` is ignored.
 - a confirmed subscriber can unsubscribe using Buttondown's email link
 - the weekly workflow creates one Buttondown issue
 - privacy, terms, disclaimer, methodology, and data-source pages resolve
-- LinkedIn sharing displays the generated Open Graph image
+- X sharing displays the generated Open Graph image
 
 ## Free-Tier Boundaries
 

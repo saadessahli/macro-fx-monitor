@@ -46,7 +46,7 @@ export default async function AdminLayout({ children }: { children: ReactNode })
         <nav aria-label="Admin navigation">
           <Link href="/admin/marketing">
             <Megaphone size={17} />
-            Marketing Agent
+            X Content Agent
           </Link>
         </nav>
         <div className="admin-sidebar-footer">

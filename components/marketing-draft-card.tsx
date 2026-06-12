@@ -23,7 +23,7 @@ export function MarketingDraftCard({ draft }: { draft: MarketingDraft }) {
         </div>
         <button type="button" onClick={copyDraft}>
           {copied ? <Check size={15} /> : <Copy size={15} />}
-          {copied ? "Copied" : "Copy"}
+          {copied ? "Copied" : "Copy for X"}
         </button>
       </div>
       <pre>{draft.body}</pre>

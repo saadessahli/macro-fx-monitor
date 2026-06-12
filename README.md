@@ -139,9 +139,9 @@ Create the administrator as an email/password user in Supabase Auth. Keep
 form. Administrator invitations return through `/auth/callback` to the private
 `/set-password` activation page.
 
-The first private feature is `/admin/marketing`, a review-only Marketing Agent
-that converts the latest macro snapshot into LinkedIn, X, and newsletter
-drafts. It never publishes content automatically.
+The first private feature is `/admin/marketing`, a review-only X Content Agent
+that converts the latest macro snapshot into an X thread, a short single X
+post, and optional visual-card copy. It never publishes content automatically.
 
 ## Data and Legal Notice
 

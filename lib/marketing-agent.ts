@@ -13,83 +13,74 @@ function topDrivers(snapshot: MacroSnapshot) {
   return snapshot.strongestDrivers.slice(0, 3);
 }
 
-export function buildMarketingDrafts(snapshot: MacroSnapshot): MarketingDraft[] {
+function fitXPost(value: string, maxLength = 280) {
+  if (value.length <= maxLength) return value;
+  return `${value.slice(0, maxLength - 3).trimEnd()}...`;
+}
+
+export function buildXDrafts(snapshot: MacroSnapshot): MarketingDraft[] {
   const drivers = topDrivers(snapshot);
-  const driverBullets = drivers.map((driver) => `• ${driverLine(driver)}`).join("\n");
-  const score = snapshot.dxyScore === null ? "mixed" : `${formatSignedNumber(snapshot.dxyScore, 1)} / 10`;
-  const dashboardUrl = `${siteConfig.url}/dashboard`;
+  const score = snapshot.dxyScore === null
+    ? "mixed"
+    : `${formatSignedNumber(snapshot.dxyScore, 1)} / 10`;
   const snapshotUrl = `${siteConfig.url}/snapshot`;
+  const thread = [
+    fitXPost(`1/4 The latest Macro FX Monitor regime update is live.
 
-  return [
-    {
-      id: "linkedin",
-      channel: "LinkedIn",
-      title: "Weekly macro regime update",
-      note: "Professional, evidence-led launch post with a direct dashboard link.",
-      body: `The latest Macro FX Monitor update is live.
-
-The current US macro mix points to a ${snapshot.dxyPlay.bias.toLowerCase()}, with an aggregate DXY score of ${score}.
-
-The strongest signals in the model:
-${driverBullets || "• The model remains broadly balanced across its major drivers."}
-
-What I am watching next:
+DXY score: ${score}
+Bias: ${snapshot.dxyPlay.bias}`),
+    fitXPost(`2/4 The strongest model drivers:
+${drivers.map((driver) => `- ${driverLine(driver)}`).join("\n") || "- Macro signals remain mixed."}`),
+    fitXPost(`3/4 Confirmation:
 ${snapshot.dxyPlay.confirmation}
 
-What would invalidate the view:
-${snapshot.dxyPlay.invalidation}
+Invalidation:
+${snapshot.dxyPlay.invalidation}`),
+    fitXPost(`4/4 Full source-backed snapshot:
+${snapshotUrl}
 
-Explore the free, source-backed dashboard:
-${dashboardUrl}
+Educational research only. Not investment advice.`),
+  ];
+  const singlePostSuffix = `\n\nFull snapshot: ${snapshotUrl}\n\nEducational research only.`;
+  const singlePostPrefix = `Macro FX Monitor: ${snapshot.dxyPlay.bias} | DXY score ${score}\n\n`;
+  const conclusionLimit = 280 - singlePostPrefix.length - singlePostSuffix.length;
+  const singlePost = `${singlePostPrefix}${fitXPost(
+    snapshot.dxyConclusion,
+    Math.max(conclusionLimit, 3)
+  )}${singlePostSuffix}`;
 
-This is educational macro research, not investment advice.
-
-#Macroeconomics #FederalReserve #DXY #TreasuryYields #DataAnalytics`,
-    },
+  return [
     {
       id: "x-thread",
       channel: "X thread",
       title: "Four-post macro thread",
-      note: "Compact thread structure for a fast weekly distribution cadence.",
-      body: `1/4 The latest Macro FX Monitor regime update is live.
-
-DXY score: ${score}
-Bias: ${snapshot.dxyPlay.bias}
-
-2/4 The strongest model drivers:
-${drivers.map((driver) => `- ${driverLine(driver)}`).join("\n") || "- Macro signals remain mixed."}
-
-3/4 Confirmation:
-${snapshot.dxyPlay.confirmation}
-
-Invalidation:
-${snapshot.dxyPlay.invalidation}
-
-4/4 Full source-backed snapshot:
-${snapshotUrl}
-
-Educational research only. Not investment advice.`,
+      note: "A compact weekly thread ready for review and publishing on X.",
+      body: thread.join("\n\n"),
     },
     {
-      id: "newsletter-teaser",
-      channel: "Newsletter teaser",
-      title: "Weekly review preview",
-      note: "Short preview for Buttondown, a landing page, or a direct message.",
-      body: `This week in Macro FX Monitor
+      id: "x-single",
+      channel: "X post",
+      title: "Short single post",
+      note: "A concise standalone update ready to publish on X.",
+      body: singlePost,
+    },
+    {
+      id: "x-visual-card",
+      channel: "X visual card",
+      title: "Optional card copy",
+      note: "Short text hierarchy for an optional image attached to the X post.",
+      body: `MACRO FX MONITOR
 
-The dashboard currently reads ${snapshot.dxyConclusion.toLowerCase()}, with a DXY score of ${score}.
+DXY REGIME
+${snapshot.dxyPlay.bias.toUpperCase()}
 
-Inside the latest review:
-• The highest-conviction macro drivers
-• The releases that could change the regime
-• Confirmation and invalidation conditions for the current USD bias
+MODEL SCORE
+${score}
 
-Current framing: ${snapshot.dxyPlay.expression}
+CURRENT READ
+${snapshot.dxyConclusion}
 
-Read the latest snapshot:
-${snapshotUrl}
-
-Free weekly research. Unsubscribe anytime.`,
+${snapshot.periodEnd}`,
     },
   ];
 }
