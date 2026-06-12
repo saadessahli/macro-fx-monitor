@@ -23,6 +23,7 @@ create index if not exists marketing_drafts_created_at_idx
 alter table public.marketing_drafts enable row level security;
 
 revoke all on public.marketing_drafts from anon, authenticated;
+grant select, insert, update, delete on public.marketing_drafts to service_role;
 
 comment on table public.marketing_drafts is
   'Private X content drafts. Access is restricted to server-side admin endpoints using the service role.';
