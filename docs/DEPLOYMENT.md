@@ -9,11 +9,15 @@ infrastructure, and public archives. Confirm the current plan limits before
 launch because newsletter pricing can change.
 
 1. Create a Buttondown newsletter.
-2. Set the newsletter name and confirmation redirect.
+2. Set the newsletter name and confirmation redirect. Keep Buttondown's default
+   double-opt-in behavior enabled.
 3. Create an API key.
-4. Save the key as `BUTTONDOWN_API_KEY`.
+4. Save the key as the server-only `BUTTONDOWN_API_KEY`.
 
 No custom domain is required for the initial launch.
+The subscriber form does not require Supabase. Buttondown stores subscribers,
+sends confirmation emails, prevents duplicate records, and provides the
+unsubscribe link in sent newsletters.
 
 ## 2. Supabase
 
@@ -51,6 +55,8 @@ Import the GitHub repository into Vercel Hobby and configure:
 - `NEXT_PUBLIC_CONTACT_EMAIL`
 
 Use the generated `*.vercel.app` URL to remain completely free.
+Apply `BUTTONDOWN_API_KEY` to Production and Preview, then redeploy. Do not use
+a `NEXT_PUBLIC_` prefix for the Buttondown key.
 
 After deployment, update `SITE_URL` in GitHub Actions secrets and run each
 snapshot workflow manually once.
@@ -68,7 +74,9 @@ repository is made public, even though `.env.local` is ignored.
 
 - `/api/data-status` reports `healthy: true`
 - `/snapshot` renders current data and calendar events
-- the newsletter form triggers a confirmation email
+- the newsletter form triggers a Buttondown confirmation email for a new address
+- repeating the same address does not create or reactivate a duplicate
+- a confirmed subscriber can unsubscribe using Buttondown's email link
 - the weekly workflow creates one Buttondown issue
 - privacy, terms, disclaimer, methodology, and data-source pages resolve
 - LinkedIn sharing displays the generated Open Graph image

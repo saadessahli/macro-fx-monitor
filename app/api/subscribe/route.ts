@@ -1,28 +1,48 @@
 import { NextResponse } from "next/server";
-import { isButtondownConfigured, subscribeToNewsletter } from "@/lib/buttondown";
+import {
+  ButtondownRequestError,
+  isButtondownConfigured,
+  subscribeToNewsletter,
+} from "@/lib/buttondown";
 
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const successMessage =
+  "If this address is new, check your inbox to confirm. If you already subscribed, you're all set.";
+
+function json(body: Record<string, unknown>, status = 200) {
+  return NextResponse.json(body, {
+    status,
+    headers: { "Cache-Control": "no-store" },
+  });
+}
 
 export async function POST(request: Request) {
   if (!isButtondownConfigured()) {
-    return NextResponse.json(
-      { error: "Newsletter subscriptions are not configured yet." },
-      { status: 503 }
+    return json(
+      {
+        ok: false,
+        code: "NEWSLETTER_UNAVAILABLE",
+        error: "Newsletter subscriptions are temporarily unavailable.",
+      },
+      503
     );
   }
 
   const body = (await request.json().catch(() => null)) as
-    | { email?: string; company?: string }
+    | { email?: unknown; company?: unknown }
     | null;
-  const email = body?.email?.trim().toLowerCase() ?? "";
+  const email = typeof body?.email === "string" ? body.email.trim().toLowerCase() : "";
 
   // Honeypot field. Bots commonly fill every visible or hidden input.
   if (body?.company) {
-    return NextResponse.json({ ok: true });
+    return json({ ok: true, message: successMessage });
   }
 
   if (!emailPattern.test(email) || email.length > 254) {
-    return NextResponse.json({ error: "Enter a valid email address." }, { status: 400 });
+    return json(
+      { ok: false, code: "INVALID_EMAIL", error: "Enter a valid email address." },
+      400
+    );
   }
 
   const forwardedFor = request.headers.get("x-forwarded-for");
@@ -30,15 +50,31 @@ export async function POST(request: Request) {
 
   try {
     await subscribeToNewsletter(email, ipAddress);
-    return NextResponse.json({
+    return json({
       ok: true,
-      message: "Check your inbox to confirm your subscription.",
+      message: successMessage,
     });
   } catch (error) {
     console.error("Newsletter subscription failed", error);
-    return NextResponse.json(
-      { error: "Subscription could not be completed. Please try again shortly." },
-      { status: 502 }
+
+    if (error instanceof ButtondownRequestError && error.status === 429) {
+      return json(
+        {
+          ok: false,
+          code: "RATE_LIMITED",
+          error: "Too many signup attempts. Please try again shortly.",
+        },
+        429
+      );
+    }
+
+    return json(
+      {
+        ok: false,
+        code: "PROVIDER_ERROR",
+        error: "Subscription could not be completed. Please try again shortly.",
+      },
+      502
     );
   }
 }

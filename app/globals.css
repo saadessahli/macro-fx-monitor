@@ -873,6 +873,24 @@ h3 {
   margin-top: 0;
 }
 
+.newsletter-label,
+.newsletter-consent {
+  grid-column: 1 / -1;
+}
+
+.newsletter-label {
+  color: var(--text-soft);
+  font-size: 0.72rem;
+  font-weight: 650;
+}
+
+.newsletter-consent {
+  margin: 3px 0 0 !important;
+  color: var(--muted);
+  font-size: 0.68rem;
+  line-height: 1.55;
+}
+
 .newsletter-form input {
   min-width: 0;
   height: 42px;

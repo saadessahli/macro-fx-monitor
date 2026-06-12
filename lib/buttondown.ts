@@ -6,6 +6,26 @@ type ButtondownEmail = {
   status: string;
 };
 
+type ButtondownSubscriber = {
+  id: string;
+  email_address: string;
+  type: string;
+};
+
+type ButtondownSubscriberList = {
+  results: ButtondownSubscriber[];
+};
+
+export class ButtondownRequestError extends Error {
+  constructor(
+    public readonly status: number,
+    detail: string
+  ) {
+    super(`Buttondown request failed (${status}): ${detail}`);
+    this.name = "ButtondownRequestError";
+  }
+}
+
 function apiKey() {
   return process.env.BUTTONDOWN_API_KEY;
 }
@@ -35,27 +55,51 @@ async function buttondownRequest<T>(
 
   if (!response.ok) {
     const detail = await response.text();
-    throw new Error(`Buttondown request failed (${response.status}): ${detail}`);
+    throw new ButtondownRequestError(response.status, detail);
   }
 
   return response.json() as Promise<T>;
 }
 
 export async function subscribeToNewsletter(email: string, ipAddress?: string) {
-  return buttondownRequest<{ id: string; type: string }>("subscribers", {
-    method: "POST",
-    headers: {
-      "X-Buttondown-Collision-Behavior": "overwrite",
-    },
-    body: {
-      email_address: email,
-      type: "regular",
-      ip_address: ipAddress,
-      metadata: {
-        source: "macro-fx-monitor",
+  const normalizedEmail = email.trim().toLowerCase();
+  const existing = await findSubscriber(normalizedEmail);
+
+  if (existing) {
+    return { subscriber: existing, created: false };
+  }
+
+  try {
+    const subscriber = await buttondownRequest<ButtondownSubscriber>("subscribers", {
+      method: "POST",
+      body: {
+        email_address: normalizedEmail,
+        ip_address: ipAddress,
       },
-    },
-  });
+    });
+
+    return { subscriber, created: true };
+  } catch (error) {
+    // A concurrent request can create the subscriber between the lookup and POST.
+    if (error instanceof ButtondownRequestError && [400, 409].includes(error.status)) {
+      const subscriber = await findSubscriber(normalizedEmail);
+      if (subscriber) return { subscriber, created: false };
+    }
+
+    throw error;
+  }
+}
+
+async function findSubscriber(email: string) {
+  const subscribers = await buttondownRequest<ButtondownSubscriberList>(
+    `subscribers?email_address=${encodeURIComponent(email)}`
+  );
+
+  return (
+    subscribers.results.find(
+      (subscriber) => subscriber.email_address.trim().toLowerCase() === email
+    ) ?? null
+  );
 }
 
 export async function publishNewsletterEmail({

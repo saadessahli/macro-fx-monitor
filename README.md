@@ -85,10 +85,34 @@ free hosting limits while preserving the windows used by the model.
 
 1. A visitor submits the website form.
 2. `/api/subscribe` proxies the request to Buttondown.
-3. Buttondown handles spam filtering, double opt-in, delivery, and unsubscribe.
-4. GitHub Actions calls the protected snapshot endpoint weekly and monthly.
-5. The endpoint generates the macro note, stores it in Supabase, and publishes
+3. Buttondown creates an unconfirmed subscriber and sends its double-opt-in email.
+4. Existing subscribers are not overwritten or silently reactivated.
+5. Buttondown handles delivery and adds an unsubscribe link to newsletter emails.
+6. GitHub Actions calls the protected snapshot endpoint weekly and monthly.
+7. The endpoint generates the macro note, stores it in Supabase, and publishes
    it through Buttondown.
+
+### Enable Newsletter Signup
+
+Create a Buttondown newsletter and API key, then add this server-only variable
+in Vercel under Project Settings > Environment Variables:
+
+```text
+BUTTONDOWN_API_KEY=your_buttondown_api_key
+```
+
+Apply it to Production and Preview, then redeploy. Never prefix this variable
+with `NEXT_PUBLIC_`; the API key must not be available in browser code.
+
+Buttondown's default double-opt-in setting must remain enabled. Supabase is not
+required to collect subscribers. `SUPABASE_URL` and
+`SUPABASE_SERVICE_ROLE_KEY` are only needed for generated snapshot persistence
+and scheduled newsletter publishing.
+
+To test the live flow, submit a new address on `/newsletter`, open the
+Buttondown confirmation email, confirm the subscription, and verify that the
+subscriber becomes active in Buttondown. Published Buttondown emails include
+the provider-managed unsubscribe link.
 
 ## Deployment
 
