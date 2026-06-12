@@ -7,17 +7,22 @@
     "build": "next build",
     "start": "next start",
     "check": "tsc -p tsconfig.check.json --noEmit",
-    "lint": "eslint app components lib types next.config.ts --max-warnings=0"
+    "lint": "eslint app components lib types remotion next.config.ts --max-warnings=0",
+    "video:studio": "remotion studio remotion/index.tsx",
+    "video:render": "remotion render remotion/index.tsx XMarketingVideo out/macro-fx-update.mp4 --props=remotion/sample-props.json"
   },
   "dependencies": {
+    "@remotion/cli": "^4.0.475",
     "@supabase/ssr": "^0.12.0",
     "@supabase/supabase-js": "^2.108.1",
     "@vercel/analytics": "^2.0.1",
+    "html-to-image": "^1.11.13",
     "lucide-react": "^0.511.0",
     "next": "^15.5.19",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
-    "recharts": "^2.15.1"
+    "recharts": "^2.15.1",
+    "remotion": "^4.0.475"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.3.5",

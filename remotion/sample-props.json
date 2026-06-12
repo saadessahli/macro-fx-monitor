@@ -1,0 +1,14 @@
+{
+  "title": "DXY Regime Update",
+  "score": "+2.2 / 10",
+  "bias": "Bullish USD bias",
+  "drivers": [
+    "CPI: bullish for DXY",
+    "Treasury yields: supportive for USD",
+    "Fed expectations: restrictive policy support"
+  ],
+  "confirmation": "U.S. yields remain firm while inflation or growth releases beat the cooling narrative.",
+  "invalidation": "Treasury yields decline alongside softer labor and inflation data.",
+  "snapshotUrl": "https://macro-fx-monitor.vercel.app/snapshot",
+  "snapshotDate": "2026-06-12"
+}

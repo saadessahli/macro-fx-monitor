@@ -147,3 +147,10 @@ export async function loadLatestSnapshot(frequency?: NewsletterFrequency) {
   );
   return rows[0]?.payload ?? null;
 }
+
+export async function loadRecentSnapshots(frequency: NewsletterFrequency, limit = 2) {
+  const rows = await supabaseRequest<Array<{ payload: MacroSnapshot }>>(
+    `snapshots?select=payload&frequency=eq.${frequency}&order=generated_at.desc&limit=${limit}`
+  );
+  return rows.map((row) => row.payload);
+}

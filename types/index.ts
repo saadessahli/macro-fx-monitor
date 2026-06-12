@@ -196,10 +196,44 @@ export type MacroSnapshot = {
   upcomingCalendar: EconomicCalendarEvent[];
 };
 
+export type XContentType =
+  | "single"
+  | "thread"
+  | "educational"
+  | "driver"
+  | "weekly-recap"
+  | "contrarian";
+
+export type MarketingDraftStatus = "draft" | "ready" | "posted";
+
 export type MarketingDraft = {
   id: string;
-  channel: string;
+  createdAt: string;
+  updatedAt: string;
+  contentType: XContentType;
+  status: MarketingDraftStatus;
   title: string;
-  body: string;
-  note: string;
+  textContent: string;
+  threadPosts: string[];
+  imageCardData: MarketingImageCardData;
+  videoConfig: MarketingVideoConfig;
+  snapshotId: string;
+  snapshotDate: string;
+  manuallyPostedAt: string | null;
+  notes: string;
+};
+
+export type MarketingImageCardData = {
+  score: string;
+  bias: string;
+  drivers: string[];
+  confirmation: string;
+  invalidation: string;
+  snapshotUrl: string;
+  snapshotDate: string;
+};
+
+export type MarketingVideoConfig = MarketingImageCardData & {
+  title: string;
+  durationSeconds: number;
 };
