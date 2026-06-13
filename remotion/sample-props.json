@@ -10,5 +10,12 @@
   "confirmation": "U.S. yields remain firm while inflation or growth releases beat the cooling narrative.",
   "invalidation": "Treasury yields decline alongside softer labor and inflation data.",
   "snapshotUrl": "https://macro-fx-monitor.vercel.app/snapshot",
-  "snapshotDate": "2026-06-12"
+  "snapshotDate": "2026-06-12",
+  "hook": "The dollar setup depends on one thing.",
+  "voiceoverScript": "The dollar setup depends on one thing: whether yields confirm the macro data.",
+  "musicEnabled": false,
+  "musicUrl": "",
+  "musicVolume": 0.08,
+  "subtitlesEnabled": true,
+  "voiceoverUrl": ""
 }

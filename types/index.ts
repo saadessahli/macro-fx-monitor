@@ -205,6 +205,30 @@ export type XContentType =
   | "contrarian";
 
 export type MarketingDraftStatus = "draft" | "ready" | "posted";
+export type MarketingTone = "professional" | "simple" | "analytical" | "direct";
+export type MarketingVariationStyle = "conservative" | "educational" | "engagement";
+export type MarketingResultQuality = "bad" | "okay" | "good" | "strong";
+export type MarketingPlanStatus = "draft" | "copied" | "posted" | "skipped";
+
+export type MarketingQualityScores = {
+  clarity: number;
+  relevance: number;
+  hook: number;
+  educationalValue: number;
+  promotionalRisk: number;
+  financialAdviceRisk: number;
+  repetitionRisk: number;
+  risk: number;
+  warnings: string[];
+};
+
+export type MarketingVariation = {
+  style: MarketingVariationStyle;
+  text: string;
+  whyItWorks: string;
+  characterCount: number;
+  scores: MarketingQualityScores;
+};
 
 export type MarketingDraft = {
   id: string;
@@ -220,6 +244,14 @@ export type MarketingDraft = {
   snapshotId: string;
   snapshotDate: string;
   manuallyPostedAt: string | null;
+  copiedAt: string | null;
+  topic: string;
+  tone: MarketingTone;
+  instruction: string;
+  variations: MarketingVariation[];
+  qualityScores: MarketingQualityScores;
+  versionNumber: number;
+  postedUrl: string;
   notes: string;
 };
 
@@ -236,4 +268,80 @@ export type MarketingImageCardData = {
 export type MarketingVideoConfig = MarketingImageCardData & {
   title: string;
   durationSeconds: number;
+  hook: string;
+  voiceoverScript: string;
+  musicEnabled: boolean;
+  musicUrl: string;
+  musicVolume: number;
+  subtitlesEnabled: boolean;
+  voiceoverUrl: string;
+};
+
+export type MarketingSettings = {
+  defaultTone: MarketingTone;
+  dailyPostTarget: number;
+  dailyReplyTarget: number;
+  defaultDisclaimer: string;
+  linkUsageFrequency: "never" | "low" | "medium" | "high";
+  promotionalLevelLimit: number;
+  preferredTopics: string[];
+  blockedTopics: string[];
+  blockedWords: string[];
+  targetAudience: string;
+  defaultCta: string;
+  aiEnabled: boolean;
+  xApiDiscoveryEnabled: boolean;
+  manualFallbackEnabled: boolean;
+  videoMusicEnabled: boolean;
+  subtitlesEnabled: boolean;
+};
+
+export type MarketingDailyPlanItem = {
+  id: string;
+  contentType: XContentType | "reply" | "image" | "video";
+  topic: string;
+  timeWindow: string;
+  draftText: string;
+  reason: string;
+  goal: "educate" | "engage" | "drive dashboard visits" | "build credibility";
+  status: MarketingPlanStatus;
+};
+
+export type ReplyOpportunityStatus = "new" | "copied" | "replied" | "skipped";
+
+export type ReplyOpportunity = {
+  id: string;
+  createdAt: string;
+  updatedAt: string;
+  originalUrl: string;
+  author: string;
+  postText: string;
+  detectedTopic: string;
+  relevanceScore: number;
+  replyShort: string;
+  replyEducational: string;
+  replyDashboard: string;
+  replyQualityScore: number;
+  promotionalRiskScore: number;
+  status: ReplyOpportunityStatus;
+  repliedAt: string | null;
+  copiedAt: string | null;
+  notes: string;
+};
+
+export type PostPerformance = {
+  id: string;
+  draftId: string | null;
+  replyOpportunityId: string | null;
+  postedUrl: string;
+  impressions: number;
+  likes: number;
+  replies: number;
+  reposts: number;
+  bookmarks: number;
+  profileVisits: number;
+  resultQuality: MarketingResultQuality;
+  notes: string;
+  createdAt: string;
+  updatedAt: string;
 };

@@ -2,11 +2,16 @@ import "server-only";
 
 import { randomUUID } from "node:crypto";
 import { formatSignedNumber } from "@/lib/format";
+import { generateAiVariations } from "@/lib/marketing-ai";
 import { DISCLAIMER, X_CONTENT_OPTIONS } from "@/lib/marketing-config";
+import { scoreMarketingText } from "@/lib/marketing-quality";
 import { siteConfig } from "@/lib/site";
 import type {
   MacroSnapshot,
   MarketingDraft,
+  MarketingSettings,
+  MarketingTone,
+  MarketingVariation,
   SnapshotDriver,
   XContentType,
 } from "@/types";
@@ -65,11 +70,54 @@ function threadPosts(snapshot: MacroSnapshot) {
   ];
 }
 
-export function createMarketingDraft(
+function fallbackVariations(
+  base: string,
+  topic: string,
+  snapshot: MacroSnapshot,
+  recentTexts: string[]
+): MarketingVariation[] {
+  const topDriver = snapshot.strongestDrivers[0]?.title ?? topic;
+  const candidates: Array<Pick<MarketingVariation, "style" | "text" | "whyItWorks">> = [
+    {
+      style: "conservative",
+      text: base,
+      whyItWorks: "Leads with the current source-backed regime and avoids exaggerated claims.",
+    },
+    {
+      style: "educational",
+      text: withDisclaimer(
+        `${topic} matters because markets react to how it changes Fed expectations, Treasury yields, and the relative USD outlook. Current DXY bias: ${snapshot.dxyPlay.bias}.`
+      ),
+      whyItWorks: "Explains the transmission mechanism in plain language.",
+    },
+    {
+      style: "engagement",
+      text: withDisclaimer(
+        `What matters more for DXY right now: ${topDriver}, Fed expectations, or yields?\n\nThe current model bias is ${snapshot.dxyPlay.bias.toLowerCase()}, but confirmation still matters.`
+      ),
+      whyItWorks: "Uses a focused question without hype or a forced promotional link.",
+    },
+  ];
+
+  return candidates.map((variation) => ({
+    ...variation,
+    characterCount: variation.text.length,
+    scores: scoreMarketingText(variation.text, recentTexts),
+  }));
+}
+
+export async function createMarketingDraft(
   contentType: XContentType,
   snapshot: MacroSnapshot,
-  previous?: MacroSnapshot | null
-): MarketingDraft {
+  previous: MacroSnapshot | null,
+  options: {
+    topic: string;
+    tone: MarketingTone;
+    instruction: string;
+    recentTexts: string[];
+    settings: MarketingSettings;
+  }
+): Promise<MarketingDraft> {
   const now = new Date().toISOString();
   const score = scoreLabel(snapshot);
   const url = `${siteConfig.url}/snapshot`;
@@ -102,6 +150,33 @@ export function createMarketingDraft(
     textContent = withDisclaimer(`${title}\n\nCurrent bias: ${snapshot.dxyPlay.bias}.\nRisk condition: ${snapshot.dxyPlay.invalidation}\n\nThis is a scenario check, not a prediction.`);
   }
 
+  const aiVariations = await generateAiVariations({
+    contentType,
+    topic: options.topic,
+    tone: options.tone,
+    instruction: options.instruction,
+    snapshot,
+    recentTexts: options.recentTexts,
+    settings: options.settings,
+  }).catch(() => null);
+  const variations = aiVariations
+    ? aiVariations.map((variation) => ({
+        ...variation,
+        text: contentType === "thread" ? variation.text : fitPost(variation.text),
+        characterCount: variation.text.length,
+        scores: scoreMarketingText(variation.text, options.recentTexts),
+      }))
+    : fallbackVariations(textContent, options.topic, snapshot, options.recentTexts);
+  const selectedText = variations[0]?.text ?? textContent;
+  const qualityScores = scoreMarketingText(
+    contentType === "thread" ? posts.join("\n\n") : selectedText,
+    options.recentTexts
+  );
+  const videoHook =
+    variations.find((variation) => variation.style === "engagement")?.text.split("\n")[0]
+    ?? "Here is what is driving the dollar today.";
+  const voiceoverScript = `${videoHook} The current DXY score is ${score}, with a ${snapshot.dxyPlay.bias.toLowerCase()}. The top drivers are ${drivers.map((driver) => driver.title).join(", ") || "currently unavailable"}. The confirmation signal is ${snapshot.dxyPlay.confirmation} The key invalidation is ${snapshot.dxyPlay.invalidation} Educational research only, not investment advice.`;
+
   return {
     id: randomUUID(),
     createdAt: now,
@@ -109,7 +184,7 @@ export function createMarketingDraft(
     contentType,
     status: "draft",
     title,
-    textContent,
+    textContent: contentType === "thread" ? textContent : selectedText,
     threadPosts: posts,
     imageCardData: {
       score,
@@ -122,7 +197,7 @@ export function createMarketingDraft(
     },
     videoConfig: {
       title: "DXY Regime Update",
-      durationSeconds: 20,
+      durationSeconds: 30,
       score,
       bias: snapshot.dxyPlay.bias,
       drivers: drivers.map(driverLine),
@@ -130,10 +205,25 @@ export function createMarketingDraft(
       invalidation: snapshot.dxyPlay.invalidation,
       snapshotUrl: url,
       snapshotDate: snapshot.periodEnd,
+      hook: fitPost(videoHook, 110),
+      voiceoverScript,
+      musicEnabled: options.settings.videoMusicEnabled,
+      musicUrl: "",
+      musicVolume: 0.08,
+      subtitlesEnabled: options.settings.subtitlesEnabled,
+      voiceoverUrl: "",
     },
     snapshotId: snapshot.id,
     snapshotDate: snapshot.periodEnd,
     manuallyPostedAt: null,
+    copiedAt: null,
+    topic: options.topic,
+    tone: options.tone,
+    instruction: options.instruction,
+    variations,
+    qualityScores,
+    versionNumber: 1,
+    postedUrl: "",
     notes: "",
   };
 }

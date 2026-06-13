@@ -7,7 +7,7 @@ export function RemotionRoot() {
     <Composition
       id="XMarketingVideo"
       component={XMarketingVideo}
-      durationInFrames={600}
+      durationInFrames={900}
       fps={30}
       width={1600}
       height={900}

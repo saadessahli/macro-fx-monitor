@@ -2,6 +2,10 @@ import type { Metadata } from "next";
 import { ShieldCheck } from "lucide-react";
 import { MarketingWorkspace } from "@/components/marketing-workspace";
 import { listMarketingDrafts } from "@/lib/marketing-drafts";
+import { isMarketingAiConfigured } from "@/lib/marketing-ai";
+import { buildDailyMarketingPlan } from "@/lib/marketing-plan";
+import { DEFAULT_MARKETING_SETTINGS, getMarketingSettings } from "@/lib/marketing-settings";
+import { listReplyOpportunities } from "@/lib/reply-opportunities";
 import { generateMacroSnapshot, loadLatestSnapshot } from "@/lib/snapshots";
 import { isSupabaseConfigured } from "@/lib/supabase";
 
@@ -19,6 +23,13 @@ export default async function MarketingAgentPage() {
   const drafts = isSupabaseConfigured()
     ? await listMarketingDrafts().catch(() => [])
     : [];
+  const settings = isSupabaseConfigured()
+    ? await getMarketingSettings().catch(() => DEFAULT_MARKETING_SETTINGS)
+    : DEFAULT_MARKETING_SETTINGS;
+  const replies = isSupabaseConfigured()
+    ? await listReplyOpportunities().catch(() => [])
+    : [];
+  const dailyPlan = buildDailyMarketingPlan(snapshot, drafts, settings);
 
   return (
     <div className="admin-page">
@@ -33,7 +44,14 @@ export default async function MarketingAgentPage() {
         </div>
         <div className="agent-status"><ShieldCheck size={16} /> Admin only</div>
       </header>
-      <MarketingWorkspace snapshot={snapshot} initialDrafts={drafts} />
+      <MarketingWorkspace
+        snapshot={snapshot}
+        initialDrafts={drafts}
+        initialSettings={settings}
+        initialReplies={replies}
+        dailyPlan={dailyPlan}
+        aiConfigured={isMarketingAiConfigured(settings)}
+      />
     </div>
   );
 }

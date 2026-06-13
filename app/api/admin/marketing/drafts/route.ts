@@ -2,9 +2,11 @@ import { NextResponse } from "next/server";
 import { getAuthenticatedUser, isAdminEmail } from "@/lib/admin";
 import { createMarketingDraft } from "@/lib/marketing-agent";
 import { listMarketingDrafts, saveMarketingDraft } from "@/lib/marketing-drafts";
+import { DEFAULT_MARKETING_SETTINGS, getMarketingSettings } from "@/lib/marketing-settings";
+import { MARKETING_TOPIC_BANK } from "@/lib/marketing-plan";
 import { generateMacroSnapshot, loadRecentSnapshots } from "@/lib/snapshots";
 import { isSupabaseConfigured } from "@/lib/supabase";
-import type { XContentType } from "@/types";
+import type { MarketingTone, XContentType } from "@/types";
 
 const contentTypes = new Set<XContentType>([
   "single",
@@ -37,7 +39,12 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
   }
 
-  const body = await request.json().catch(() => null) as { contentType?: XContentType } | null;
+  const body = await request.json().catch(() => null) as {
+    contentType?: XContentType;
+    topic?: string;
+    tone?: MarketingTone;
+    instruction?: string;
+  } | null;
   if (!body?.contentType || !contentTypes.has(body.contentType)) {
     return NextResponse.json({ error: "Invalid content type." }, { status: 400 });
   }
@@ -46,7 +53,18 @@ export async function POST(request: Request) {
     ? await loadRecentSnapshots("weekly", 2).catch(() => [])
     : [];
   const snapshot = stored[0] ?? await generateMacroSnapshot("weekly");
-  const draft = createMarketingDraft(body.contentType, snapshot, stored[1] ?? null);
+  const existingDrafts = await listMarketingDrafts(40).catch(() => []);
+  const settings = await getMarketingSettings().catch(() => DEFAULT_MARKETING_SETTINGS);
+  const topic = String(body.topic ?? MARKETING_TOPIC_BANK[0]).slice(0, 160);
+  const tone = body.tone ?? settings.defaultTone;
+  const instruction = String(body.instruction ?? "").slice(0, 1000);
+  const draft = await createMarketingDraft(body.contentType, snapshot, stored[1] ?? null, {
+    topic,
+    tone,
+    instruction,
+    recentTexts: existingDrafts.map((item) => item.textContent),
+    settings,
+  });
 
   try {
     const saved = await saveMarketingDraft(draft);
