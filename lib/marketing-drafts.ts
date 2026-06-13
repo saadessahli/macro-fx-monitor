@@ -28,7 +28,31 @@ type MarketingDraftRow = {
   notes: string | null;
 };
 
+const emptyScores: MarketingDraft["qualityScores"] = {
+  clarity: 0,
+  relevance: 0,
+  hook: 0,
+  educationalValue: 0,
+  promotionalRisk: 0,
+  financialAdviceRisk: 0,
+  repetitionRisk: 0,
+  risk: 0,
+  warnings: [],
+};
+
 function fromRow(row: MarketingDraftRow): MarketingDraft {
+  const qualityScores = { ...emptyScores, ...(row.quality_scores ?? {}) };
+  qualityScores.warnings = Array.isArray(qualityScores.warnings) ? qualityScores.warnings : [];
+  const videoConfig = {
+    ...row.video_config,
+    hook: row.video_config?.hook ?? "Here is what is driving the dollar today.",
+    voiceoverScript: row.video_config?.voiceoverScript ?? "",
+    musicEnabled: row.video_config?.musicEnabled ?? false,
+    musicUrl: row.video_config?.musicUrl ?? "",
+    musicVolume: row.video_config?.musicVolume ?? 0.08,
+    subtitlesEnabled: row.video_config?.subtitlesEnabled ?? true,
+    voiceoverUrl: row.video_config?.voiceoverUrl ?? "",
+  };
   return {
     id: row.id,
     createdAt: row.created_at,
@@ -38,7 +62,7 @@ function fromRow(row: MarketingDraftRow): MarketingDraft {
     textContent: row.text_content,
     threadPosts: row.thread_posts ?? [],
     imageCardData: row.image_card_data,
-    videoConfig: row.video_config,
+    videoConfig,
     snapshotId: row.snapshot_id,
     snapshotDate: row.snapshot_date,
     status: row.status,
@@ -48,10 +72,7 @@ function fromRow(row: MarketingDraftRow): MarketingDraft {
     tone: row.tone ?? "professional",
     instruction: row.instruction ?? "",
     variations: row.variations ?? [],
-    qualityScores: row.quality_scores ?? {
-      clarity: 0, relevance: 0, hook: 0, educationalValue: 0,
-      promotionalRisk: 0, financialAdviceRisk: 0, repetitionRisk: 0, risk: 0, warnings: [],
-    },
+    qualityScores,
     versionNumber: row.version_number ?? 1,
     postedUrl: row.posted_url ?? "",
     notes: row.notes ?? "",
