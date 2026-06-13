@@ -263,7 +263,14 @@ See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) and
 This product uses the FRED API but is not endorsed or certified by the Federal
 Reserve Bank of St. Louis. It is educational research, not investment advice.
 
+## Future plans
+
+This project is currently free and mainly built for learning and portfolio purposes. In the future, if there is real demand, I may add premium features such as advanced dashboards, macro alerts, historical datasets, ad-free access, exports, hosted paid versions, newsletters, or data services.
+
 ## License
 
-The software is available under the [MIT License](LICENSE). Data-provider terms
-and third-party data rights remain separate from the software license.
+This project is currently source-visible for educational, learning, portfolio, and demonstration purposes only.
+
+It is not open source. Commercial use, redistribution, resale, hosting, deployment, or use as a competing product is not permitted without written permission.
+
+The project is free to view and study for learning purposes, but I reserve the right to monetize future versions, premium features, hosted access, newsletters, data services, alerts, or related products.

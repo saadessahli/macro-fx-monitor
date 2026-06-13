@@ -6,7 +6,7 @@ import { SurfaceCard } from "@/components/ui";
 
 export const metadata: Metadata = {
   title: "About",
-  description: "Why Macro FX Monitor exists and how to contribute to the open-source project.",
+  description: "Why Macro FX Monitor exists and how to study its source-visible research project.",
 };
 
 export default function AboutPage() {
@@ -28,10 +28,10 @@ export default function AboutPage() {
         </SurfaceCard>
         <SurfaceCard>
           <Github size={20} />
-          <h3>Open source</h3>
+          <h3>Source visible</h3>
           <p>
             {siteConfig.repositoryUrl ? (
-              <Link className="inline-link" href={siteConfig.repositoryUrl}>Review the code, methodology, and contribution guide on GitHub.</Link>
+              <Link className="inline-link" href={siteConfig.repositoryUrl}>View the code and methodology on GitHub for learning, portfolio, and demonstration purposes.</Link>
             ) : "The public GitHub repository will be linked after launch."}
           </p>
         </SurfaceCard>
