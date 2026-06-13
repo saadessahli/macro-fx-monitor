@@ -51,11 +51,17 @@ export function NewsletterForm({
           company: form.get("company"),
         }),
       });
-      const payload = (await response.json()) as { message?: string; error?: string };
+      const payload = (await response.json().catch(() => null)) as
+        | { ok?: boolean; message?: string; error?: string }
+        | null;
 
-      if (!response.ok) throw new Error(payload.error ?? "Subscription failed.");
+      if (!response.ok || payload?.ok !== true) {
+        throw new Error(
+          payload?.error ?? "The newsletter provider did not confirm registration."
+        );
+      }
       setState("success");
-      setMessage(payload.message ?? "Check your inbox to confirm.");
+      setMessage(payload.message ?? "You're registered. Check your inbox to confirm.");
       formElement.reset();
     } catch (error) {
       setState("error");

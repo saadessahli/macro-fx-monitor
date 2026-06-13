@@ -12,17 +12,31 @@ type ButtondownSubscriber = {
   type: string;
 };
 
-type ButtondownSubscriberList = {
-  results: ButtondownSubscriber[];
+type ButtondownSubscriberList =
+  | ButtondownSubscriber[]
+  | { results?: ButtondownSubscriber[] };
+
+export type NewsletterSubscriptionResult = {
+  subscriber: ButtondownSubscriber;
+  created: boolean;
 };
 
 export class ButtondownRequestError extends Error {
   constructor(
     public readonly status: number,
-    detail: string
+    public readonly detail: string
   ) {
     super(`Buttondown request failed (${status}): ${detail}`);
     this.name = "ButtondownRequestError";
+  }
+}
+
+export function buttondownErrorCode(error: ButtondownRequestError) {
+  try {
+    const payload = JSON.parse(error.detail) as { code?: unknown };
+    return typeof payload.code === "string" ? payload.code : null;
+  } catch {
+    return null;
   }
 }
 
@@ -61,29 +75,71 @@ async function buttondownRequest<T>(
   return response.json() as Promise<T>;
 }
 
-export async function subscribeToNewsletter(email: string, ipAddress?: string) {
+function subscriberList(value: ButtondownSubscriberList) {
+  return Array.isArray(value) ? value : value.results ?? [];
+}
+
+function isRegisteredSubscriber(
+  subscriber: ButtondownSubscriber | null,
+  email: string
+): subscriber is ButtondownSubscriber {
+  return Boolean(
+    subscriber?.id &&
+    subscriber.email_address.trim().toLowerCase() === email &&
+    subscriber.type
+  );
+}
+
+async function waitForSubscriber(email: string) {
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const subscriber = await findSubscriber(email);
+    if (subscriber) return subscriber;
+    if (attempt < 2) await new Promise((resolve) => setTimeout(resolve, 250 * (attempt + 1)));
+  }
+  return null;
+}
+
+export async function subscribeToNewsletter(
+  email: string
+): Promise<NewsletterSubscriptionResult> {
   const normalizedEmail = email.trim().toLowerCase();
   const existing = await findSubscriber(normalizedEmail);
 
-  if (existing) {
+  if (isRegisteredSubscriber(existing, normalizedEmail)) {
     return { subscriber: existing, created: false };
   }
 
   try {
-    const subscriber = await buttondownRequest<ButtondownSubscriber>("subscribers", {
+    const createdSubscriber = await buttondownRequest<ButtondownSubscriber>("subscribers", {
       method: "POST",
       body: {
         email_address: normalizedEmail,
-        ip_address: ipAddress,
       },
     });
 
-    return { subscriber, created: true };
+    if (!isRegisteredSubscriber(createdSubscriber, normalizedEmail)) {
+      throw new ButtondownRequestError(
+        502,
+        "Buttondown returned an invalid subscriber record."
+      );
+    }
+
+    const verifiedSubscriber = await waitForSubscriber(normalizedEmail);
+    if (!isRegisteredSubscriber(verifiedSubscriber, normalizedEmail)) {
+      throw new ButtondownRequestError(
+        502,
+        "Subscriber creation was not visible during verification."
+      );
+    }
+
+    return { subscriber: verifiedSubscriber, created: true };
   } catch (error) {
     // A concurrent request can create the subscriber between the lookup and POST.
     if (error instanceof ButtondownRequestError && [400, 409].includes(error.status)) {
-      const subscriber = await findSubscriber(normalizedEmail);
-      if (subscriber) return { subscriber, created: false };
+      const subscriber = await waitForSubscriber(normalizedEmail);
+      if (isRegisteredSubscriber(subscriber, normalizedEmail)) {
+        return { subscriber, created: false };
+      }
     }
 
     throw error;
@@ -96,7 +152,7 @@ async function findSubscriber(email: string) {
   );
 
   return (
-    subscribers.results.find(
+    subscriberList(subscribers).find(
       (subscriber) => subscriber.email_address.trim().toLowerCase() === email
     ) ?? null
   );

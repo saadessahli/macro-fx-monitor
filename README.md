@@ -93,6 +93,13 @@ free hosting limits while preserving the windows used by the model.
 7. The endpoint generates the macro note, stores it in Supabase, and publishes
    it through Buttondown.
 
+The signup API returns success only after Buttondown returns a valid subscriber
+and a follow-up lookup confirms that the address is registered. Provider errors,
+honeypot submissions, malformed requests, and missing configuration return
+non-2xx responses. Runtime logs use a one-way email fingerprint rather than the
+submitted address and include the request outcome, provider status, subscriber
+ID, and Buttondown subscriber status for production debugging.
+
 ### Enable Newsletter Signup
 
 Create a Buttondown newsletter and API key, then add this server-only variable
@@ -114,6 +121,17 @@ To test the live flow, submit a new address on `/newsletter`, open the
 Buttondown confirmation email, confirm the subscription, and verify that the
 subscriber becomes active in Buttondown. Published Buttondown emails include
 the provider-managed unsubscribe link.
+
+For an end-to-end API check, verify all three cases:
+
+1. An invalid email returns `400 INVALID_EMAIL`.
+2. A new real address returns `201 SUBSCRIBER_CREATED` only after it appears in
+   Buttondown, initially as unactivated when double opt-in is enabled.
+3. Repeating the same address returns `SUBSCRIBER_EXISTS` without creating a
+   duplicate.
+
+Use Vercel runtime logs filtered by `newsletter-subscription` to diagnose
+provider failures without exposing full email addresses or API keys.
 
 ## Deployment
 
