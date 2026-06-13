@@ -40,6 +40,18 @@ export function buttondownErrorCode(error: ButtondownRequestError) {
   }
 }
 
+export function isButtondownAccountUnderReview(error: ButtondownRequestError) {
+  const code = buttondownErrorCode(error)?.toLowerCase() ?? "";
+  const detail = error.detail.toLowerCase();
+  return [
+    "under_review",
+    "pending_review",
+    "pending_approval",
+    "account_review",
+  ].some((value) => code.includes(value) || detail.includes(value.replaceAll("_", " ")))
+    || detail.includes("not yet approved");
+}
+
 function apiKey() {
   return process.env.BUTTONDOWN_API_KEY;
 }

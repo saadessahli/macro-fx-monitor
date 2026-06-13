@@ -1,18 +1,19 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { toPng } from "html-to-image";
 import {
   BarChart3, Check, Clipboard, Download, ExternalLink, Film, ImageIcon,
   LoaderCircle, MessageCircle, RefreshCw, Save, Search, Settings2, Sparkles,
   Trash2,
 } from "lucide-react";
+import { createMarketingCardPng } from "@/lib/marketing-card-export";
 import { DISCLAIMER, X_CONTENT_OPTIONS } from "@/lib/marketing-config";
 import { MARKETING_TOPIC_BANK } from "@/lib/marketing-plan";
 import { splitVoiceoverSubtitles } from "@/lib/marketing-video";
 import type {
   MacroSnapshot, MarketingDailyPlanItem, MarketingDraft, MarketingSettings,
-  MarketingTone, ReplyOpportunity, ReplyOpportunityStatus, XContentType,
+  MarketingPlanStatus, MarketingTone, ReplyOpportunity, ReplyOpportunityStatus,
+  XContentType,
 } from "@/types";
 
 const imageTypes = [
@@ -74,9 +75,11 @@ export function MarketingWorkspace({
   const [videoSlide, setVideoSlide] = useState(0);
   const [videoSecond, setVideoSecond] = useState(0);
   const [videoPlaying, setVideoPlaying] = useState(false);
+  const [suggestedPosts, setSuggestedPosts] = useState(() => dailyPlan.slice(0, 3).map((item) => ({
+    ...item,
+    text: item.draftText,
+  })));
   const videoTimerRef = useRef<number | null>(null);
-  const previewCardRef = useRef<HTMLDivElement>(null);
-  const exportCardRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => () => {
     if (videoTimerRef.current) window.clearInterval(videoTimerRef.current);
@@ -215,18 +218,41 @@ export function MarketingWorkspace({
   }
 
   async function downloadCard() {
-    if (!exportCardRef.current || !active) return;
+    if (!active || !card) return;
     setBusy("image");
-    const dataUrl = await toPng(exportCardRef.current, {
-      width: 1600, height: 900, pixelRatio: 1, backgroundColor: "#07101a",
-      canvasWidth: 1600, canvasHeight: 900,
-    });
-    const link = document.createElement("a");
-    link.download = `macro-fx-monitor-${active.snapshotDate}-${imageType.toLowerCase().replaceAll(" ", "-")}.png`;
-    link.href = dataUrl;
-    link.click();
-    setBusy("");
-    setMessage("Full-size 1600 x 900 PNG downloaded.");
+    try {
+      const blob = await createMarketingCardPng(card, imageType);
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.download = `macro-fx-monitor-${active.snapshotDate}-${imageType.toLowerCase().replaceAll(" ", "-")}.png`;
+      link.href = url;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+      setMessage("Full-size 1600 x 900 PNG downloaded.");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "The PNG could not be generated.");
+    } finally {
+      setBusy("");
+    }
+  }
+
+  async function copySuggestedPost(id: string, text: string) {
+    await navigator.clipboard.writeText(text);
+    setSuggestedPosts((current) => current.map((item) =>
+      item.id === id ? { ...item, status: "copied" as MarketingPlanStatus } : item
+    ));
+    setMessage("Suggested post copied for manual posting on X.");
+  }
+
+  function updateSuggestedPost(
+    id: string,
+    changes: { text?: string; status?: MarketingPlanStatus }
+  ) {
+    setSuggestedPosts((current) => current.map((item) =>
+      item.id === id ? { ...item, ...changes } : item
+    ));
   }
 
   async function saveSettings() {
@@ -314,20 +340,37 @@ export function MarketingWorkspace({
       {message ? <p className="marketing-message" role="status">{message}</p> : null}
 
       <section className="admin-panel">
-        <div className="panel-heading"><div><span className="eyebrow">Daily workflow</span><h2>Today&apos;s X Growth Plan</h2></div><BarChart3 size={20} /></div>
-        <div className="growth-plan">
-          {dailyPlan.map((item) => (
+        <div className="panel-heading"><div><span className="eyebrow">Daily workflow</span><h2>Today&apos;s suggested posts</h2></div><BarChart3 size={20} /></div>
+        <p className="panel-copy">Two to three rotating educational ideas based on the current snapshot. Edit before copying; nothing posts automatically.</p>
+        <div className="suggested-post-grid">
+          {suggestedPosts.map((item) => (
             <article key={item.id}>
-              <div><span>{item.contentType}</span><time>{item.timeWindow}</time></div>
-              <h3>{item.topic}</h3><p>{item.draftText}</p>
-              <small>{item.reason}</small><strong>{item.goal}</strong>
-              {item.contentType !== "reply" && item.contentType !== "image" && item.contentType !== "video" ? (
+              <header>
+                <div><span>{item.topic}</span><time>{item.timeWindow}</time></div>
+                <em className={`draft-status ${item.status}`}>{item.status}</em>
+              </header>
+              <textarea
+                value={item.text}
+                maxLength={280}
+                onChange={(event) => updateSuggestedPost(item.id, {
+                  text: event.target.value,
+                  status: "draft",
+                })}
+              />
+              <div className="suggested-post-meta">
+                <small>{item.text.length}/280 characters</small>
+                <small>{item.reason}</small>
+              </div>
+              <div className="draft-actions">
+                <button type="button" onClick={() => copySuggestedPost(item.id, item.text)}><Clipboard size={14} /> Copy</button>
                 <button type="button" onClick={() => {
                   setContentType(item.contentType as XContentType);
                   setTopic(item.topic);
                   document.getElementById("marketing-generate")?.scrollIntoView({ behavior: "smooth" });
-                }}>Prepare this post</button>
-              ) : null}
+                }}>Generate variations</button>
+                <button type="button" onClick={() => updateSuggestedPost(item.id, { status: "posted" })}><Check size={14} /> Posted</button>
+                <button type="button" onClick={() => updateSuggestedPost(item.id, { status: "skipped" })}>Skip</button>
+              </div>
             </article>
           ))}
         </div>
@@ -337,7 +380,10 @@ export function MarketingWorkspace({
         <div className="panel-heading"><div><span className="eyebrow">Adaptive generation</span><h2>Generate three X variations</h2></div><Sparkles size={20} /></div>
         <div className="generate-grid">
           <label>Content type<select value={contentType} onChange={(event) => setContentType(event.target.value as XContentType)}>{X_CONTENT_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
-          <label>Topic<select value={topic} onChange={(event) => setTopic(event.target.value)}>{MARKETING_TOPIC_BANK.map((item) => <option key={item}>{item}</option>)}</select></label>
+          <label>Topic<select value={topic} onChange={(event) => setTopic(event.target.value)}>
+            {!MARKETING_TOPIC_BANK.includes(topic) ? <option value={topic}>{topic}</option> : null}
+            {MARKETING_TOPIC_BANK.map((item) => <option key={item}>{item}</option>)}
+          </select></label>
           <label>Tone<select value={tone} onChange={(event) => setTone(event.target.value as MarketingTone)}><option value="professional">Professional</option><option value="simple">Simple</option><option value="analytical">Analytical</option><option value="direct">Direct</option></select></label>
         </div>
         <label className="draft-notes">Tell the agent what angle to use today.
@@ -429,7 +475,7 @@ export function MarketingWorkspace({
           <label>Image card type<select value={imageType} onChange={(event) => setImageType(event.target.value)}>{imageTypes.map((item) => <option key={item}>{item}</option>)}</select></label>
           <div className="media-grid">
             <div>
-              <div className="x-card-scale"><div className="x-card export-card" ref={previewCardRef}>
+              <div className="x-card-scale"><div className="x-card export-card">
                 <div className="x-card-top"><span>MACRO FX MONITOR</span><span>{active.snapshotDate}</span></div>
                 <div className="x-card-signal"><div><small>{imageType.toUpperCase()}</small><strong>{card.score}</strong></div><h3>{card.bias}</h3></div>
                 <div className="x-card-drivers"><small>WHAT MATTERS</small>{card.drivers.map((driver) => <p key={driver}>{driver}</p>)}</div>
@@ -461,19 +507,12 @@ export function MarketingWorkspace({
               <div className="draft-actions"><button type="button" onClick={() => copy(video.voiceoverScript)}><Clipboard size={15} /> Copy voiceover</button><button type="button" onClick={downloadVideoConfig}><Download size={15} /> Download JSON config</button></div>
               <div className="local-render-panel">
                 <strong>Generate the real MP4 locally</strong>
-                <p>This JSON is not a video. Replace <code>remotion/sample-props.json</code> with it, then run:</p>
+                <p>JSON is not a video. To generate MP4 locally, replace <code>remotion/sample-props.json</code> and run <code>npm run video:render</code>.</p>
                 <div><code>npm run video:render</code><button type="button" onClick={() => copy("npm run video:render")}><Clipboard size={14} /> Copy command</button></div>
                 <p>MP4 output: <code>out/macro-fx-update.mp4</code></p>
               </div>
             </div>
           </div>
-          <div className="export-card-host" aria-hidden="true"><div className="x-card export-card full-size" ref={exportCardRef}>
-            <div className="x-card-top"><span>MACRO FX MONITOR</span><span>{active.snapshotDate}</span></div>
-            <div className="x-card-signal"><div><small>{imageType.toUpperCase()}</small><strong>{card.score}</strong></div><h3>{card.bias}</h3></div>
-            <div className="x-card-drivers"><small>WHAT MATTERS</small>{card.drivers.map((driver) => <p key={driver}>{driver}</p>)}</div>
-            <div className="x-card-scenarios"><p><b>Confirmation:</b> {card.confirmation}</p><p><b>Invalidation:</b> {card.invalidation}</p></div>
-            <div className="x-card-footer"><span>{card.snapshotUrl}</span><span>{DISCLAIMER}</span></div>
-          </div></div>
         </section>
       ) : null}
 

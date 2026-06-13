@@ -3,6 +3,7 @@ import { createHash, randomUUID } from "node:crypto";
 import {
   buttondownErrorCode,
   ButtondownRequestError,
+  isButtondownAccountUnderReview,
   isButtondownConfigured,
   subscribeToNewsletter,
 } from "@/lib/buttondown";
@@ -126,6 +127,18 @@ export async function POST(request: Request) {
           error: "Too many signup attempts. Please try again shortly.",
         },
         429
+      );
+    }
+
+    if (error instanceof ButtondownRequestError && isButtondownAccountUnderReview(error)) {
+      return json(
+        {
+          ok: false,
+          code: "BUTTONDOWN_REVIEW_PENDING",
+          error:
+            "Newsletter signup is temporarily paused while Buttondown reviews the sender account. Please try again later.",
+        },
+        503
       );
     }
 

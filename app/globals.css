@@ -1397,6 +1397,76 @@ h3 {
   color: #79d8ba;
 }
 
+.draft-status.copied {
+  background: rgba(91, 141, 239, 0.12);
+  color: #9bbaf6;
+}
+
+.draft-status.skipped {
+  background: rgba(143, 162, 189, 0.1);
+  color: #aab7c9;
+}
+
+.suggested-post-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.suggested-post-grid article {
+  padding: 15px;
+  border: 1px solid var(--border-soft);
+  border-radius: 9px;
+  background: #09111c;
+}
+
+.suggested-post-grid header,
+.suggested-post-grid header > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.suggested-post-grid header > div {
+  flex: 1;
+}
+
+.suggested-post-grid header span {
+  color: #dce8fa;
+  font-size: 0.76rem;
+  font-weight: 750;
+}
+
+.suggested-post-grid time {
+  color: var(--muted);
+  font-size: 0.65rem;
+}
+
+.suggested-post-grid textarea {
+  width: 100%;
+  min-height: 150px;
+  margin-top: 13px;
+  resize: vertical;
+  padding: 11px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: #07101b;
+  color: var(--text-soft);
+  font: inherit;
+  font-size: 0.76rem;
+  line-height: 1.55;
+}
+
+.suggested-post-meta {
+  display: grid;
+  gap: 4px;
+  margin-top: 8px;
+  color: var(--muted);
+  font-size: 0.64rem;
+  line-height: 1.4;
+}
+
 .generate-controls {
   display: flex;
   align-items: flex-end;
@@ -2103,47 +2173,10 @@ h3 {
   color: #b7c7df;
 }
 
-.export-card-host {
-  position: fixed;
-  left: -20000px;
-  top: 0;
-  width: 1600px;
-  height: 900px;
-  overflow: hidden;
-  pointer-events: none;
-}
-
-.x-card.full-size {
-  box-sizing: border-box;
-  width: 1600px !important;
-  height: 900px !important;
-  min-height: 900px;
-  padding: 68px;
-  font-size: 24px;
-  transform: none !important;
-}
-
-.x-card.full-size .x-card-top {
-  font-size: 25px;
-}
-
-.x-card.full-size .x-card-signal strong {
-  font-size: 98px;
-}
-
-.x-card.full-size .x-card-signal h3 {
-  max-width: 760px;
-  font-size: 58px;
-}
-
-.x-card.full-size .x-card-drivers p,
-.x-card.full-size .x-card-scenarios p {
-  font-size: 28px;
-}
-
 @media (max-width: 1100px) {
   .growth-plan,
-  .variation-grid {
+  .variation-grid,
+  .suggested-post-grid {
     grid-template-columns: 1fr 1fr;
   }
 
@@ -2155,6 +2188,7 @@ h3 {
 @media (max-width: 760px) {
   .growth-plan,
   .variation-grid,
+  .suggested-post-grid,
   .generate-grid,
   .settings-grid,
   .library-filters {
