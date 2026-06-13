@@ -5,6 +5,7 @@ import { formatSignedNumber } from "@/lib/format";
 import { generateAiVariations } from "@/lib/marketing-ai";
 import { DISCLAIMER, X_CONTENT_OPTIONS } from "@/lib/marketing-config";
 import { scoreMarketingText } from "@/lib/marketing-quality";
+import { generateVideoVoiceover } from "@/lib/marketing-video";
 import { siteConfig } from "@/lib/site";
 import type {
   MacroSnapshot,
@@ -172,10 +173,15 @@ export async function createMarketingDraft(
     contentType === "thread" ? posts.join("\n\n") : selectedText,
     options.recentTexts
   );
-  const videoHook =
-    variations.find((variation) => variation.style === "engagement")?.text.split("\n")[0]
-    ?? "Here is what is driving the dollar today.";
-  const voiceoverScript = `${videoHook} The current DXY score is ${score}, with a ${snapshot.dxyPlay.bias.toLowerCase()}. The top drivers are ${drivers.map((driver) => driver.title).join(", ") || "currently unavailable"}. The confirmation signal is ${snapshot.dxyPlay.confirmation} The key invalidation is ${snapshot.dxyPlay.invalidation} Educational research only, not investment advice.`;
+  const videoHook = "Here is what is driving the dollar today.";
+  const videoBase = {
+    score,
+    bias: snapshot.dxyPlay.bias,
+    drivers: drivers.map(driverLine),
+    confirmation: snapshot.dxyPlay.confirmation,
+    invalidation: snapshot.dxyPlay.invalidation,
+  };
+  const voiceoverScript = generateVideoVoiceover(videoBase);
 
   return {
     id: randomUUID(),
@@ -187,11 +193,7 @@ export async function createMarketingDraft(
     textContent: contentType === "thread" ? textContent : selectedText,
     threadPosts: posts,
     imageCardData: {
-      score,
-      bias: snapshot.dxyPlay.bias,
-      drivers: drivers.map(driverLine),
-      confirmation: snapshot.dxyPlay.confirmation,
-      invalidation: snapshot.dxyPlay.invalidation,
+      ...videoBase,
       snapshotUrl: url,
       snapshotDate: snapshot.periodEnd,
     },

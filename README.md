@@ -214,12 +214,22 @@ occupying a small preview corner. Image rendering remains browser-side.
 
 ### Video Preview and MP4 Rendering
 
-The admin workspace includes a five-scene, 30-second animated preview with a
-hook, animated score, progressive driver reveals, scenario retention,
-subtitles, progress bar, voiceover script, and optional audio configuration.
-Select **Download render config** to save the current props. MP4 rendering is
-kept local because Vercel serverless functions are not a reliable environment
-for Chromium-based, long-running video renders.
+The admin workspace includes a five-scene, 30-second animated preview:
+
+- `0-2s`: "Here is what is driving the dollar today."
+- `2-6s`: animated DXY score and current bias
+- `6-14s`: top three drivers revealed one by one
+- `14-22s`: confirmation and "But this bias breaks if..." invalidation
+- `22-30s`: snapshot URL and educational-research disclaimer
+
+Every video configuration includes a professional 45-75 word voiceover script.
+The browser preview splits that script into subtitle-sized chunks and displays
+the current chunk over the timed scene. The video panel shows whether subtitles
+and music are enabled and provides a copyable voiceover.
+
+**Download JSON config** downloads Remotion props, not a video. Replace
+`remotion/sample-props.json` with the downloaded JSON, then generate the real
+MP4 locally:
 
 To preview or render the reusable Remotion template:
 
@@ -228,13 +238,24 @@ npm run video:studio
 npm run video:render
 ```
 
-Replace `remotion/sample-props.json` with the downloaded render configuration
-before running `npm run video:render`. The MP4 is written to
-`out/macro-fx-update.mp4`.
+The render command reads `remotion/sample-props.json` and writes the real video
+to `out/macro-fx-update.mp4`. Local rendering is used because Vercel serverless
+functions are not a reliable environment for Chromium-based, long-running MP4
+renders. The interface does not label the downloaded JSON as a video.
 
 Optional royalty-free, generated, or user-owned audio belongs in
-`public/audio/`. Configure `musicEnabled`, `musicUrl`, `musicVolume`, and
-`voiceoverUrl` in the downloaded render props. No copyrighted audio is bundled.
+`public/audio/`. No copyrighted audio is bundled. For example:
+
+```json
+{
+  "musicEnabled": true,
+  "musicUrl": "/audio/subtle-macro-bed.mp3",
+  "musicVolume": 0.08
+}
+```
+
+Leave `musicEnabled` false or `musicUrl` empty to render silently. Only use
+royalty-free, generated, or personally owned music.
 
 ### Draft Storage
 

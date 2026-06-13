@@ -3,9 +3,12 @@ import {
   Audio,
   interpolate,
   Sequence,
+  spring,
+  staticFile,
   useCurrentFrame,
   useVideoConfig,
 } from "remotion";
+import { splitVoiceoverSubtitles } from "../lib/marketing-video";
 
 export type XMarketingVideoProps = {
   title: string;
@@ -16,6 +19,7 @@ export type XMarketingVideoProps = {
   invalidation: string;
   snapshotUrl: string;
   snapshotDate: string;
+  durationSeconds: number;
   hook: string;
   voiceoverScript: string;
   musicEnabled: boolean;
@@ -51,8 +55,15 @@ function Slide({ children, subtitle }: { children: React.ReactNode; subtitle?: s
 
 export function XMarketingVideo(props: XMarketingVideoProps) {
   const frame = useCurrentFrame();
-  const { durationInFrames } = useVideoConfig();
+  const { durationInFrames, fps } = useVideoConfig();
   const progress = `${Math.min(100, (frame / durationInFrames) * 100)}%`;
+  const subtitleChunks = splitVoiceoverSubtitles(props.voiceoverScript);
+  const subtitle = props.subtitlesEnabled && subtitleChunks.length
+    ? subtitleChunks[Math.min(
+        subtitleChunks.length - 1,
+        Math.floor((frame / durationInFrames) * subtitleChunks.length)
+      )]
+    : undefined;
   const hookLength = 60;
   const scoreLength = 120;
   const driversLength = 240;
@@ -60,32 +71,42 @@ export function XMarketingVideo(props: XMarketingVideoProps) {
   const closeLength = 240;
   return (
     <AbsoluteFill style={styles.root}>
-      {props.musicEnabled && props.musicUrl ? <Audio src={props.musicUrl} volume={props.musicVolume} /> : null}
-      {props.voiceoverUrl ? <Audio src={props.voiceoverUrl} volume={1} /> : null}
+      {props.musicEnabled && props.musicUrl ? <Audio src={mediaSource(props.musicUrl)} volume={props.musicVolume} /> : null}
+      {props.voiceoverUrl ? <Audio src={mediaSource(props.voiceoverUrl)} volume={1} /> : null}
       <Sequence durationInFrames={hookLength}>
-        <Slide subtitle={props.subtitlesEnabled ? props.hook : undefined}><div style={styles.kicker}>30-SECOND MACRO SIGNAL UPDATE</div><h1 style={styles.title}>{props.hook}</h1></Slide>
+        <Slide subtitle={subtitle}><div style={styles.kicker}>30-SECOND MACRO SIGNAL UPDATE</div><h1 style={styles.title}>{props.hook}</h1></Slide>
       </Sequence>
       <Sequence from={hookLength} durationInFrames={scoreLength}>
-        <Slide subtitle={props.subtitlesEnabled ? `Current DXY score: ${props.score}. ${props.bias}.` : undefined}><div style={styles.kicker}>DXY REGIME SCORE</div><div style={styles.score}>{props.score}</div><h2 style={styles.subtitle}>{props.bias}</h2></Slide>
+        <Slide subtitle={subtitle}><div style={styles.kicker}>DXY REGIME SCORE</div><AnimatedScore score={props.score} fps={fps} /><h2 style={styles.subtitle}>{props.bias}</h2></Slide>
       </Sequence>
       <Sequence from={hookLength + scoreLength} durationInFrames={driversLength}>
-        <DriverSlide drivers={props.drivers} subtitlesEnabled={props.subtitlesEnabled} />
+        <DriverSlide drivers={props.drivers} subtitle={subtitle} />
       </Sequence>
       <Sequence from={hookLength + scoreLength + driversLength} durationInFrames={scenarioLength}>
-        <Slide subtitle={props.subtitlesEnabled ? `The key invalidation is: ${props.invalidation}` : undefined}><div style={styles.kicker}>SCENARIO CHECK</div><p style={styles.body}><b>Confirmation:</b> {props.confirmation}</p><p style={styles.body}><b>But this bias breaks if:</b> {props.invalidation}</p></Slide>
+        <Slide subtitle={subtitle}><div style={styles.kicker}>SCENARIO CHECK</div><p style={styles.body}><b>Confirmation:</b> {props.confirmation}</p><p style={styles.body}><b>But this bias breaks if:</b> {props.invalidation}</p></Slide>
       </Sequence>
       <Sequence from={hookLength + scoreLength + driversLength + scenarioLength} durationInFrames={closeLength}>
-        <Slide subtitle={props.subtitlesEnabled ? disclaimer : undefined}><div style={styles.kicker}>FULL SOURCE-BACKED SNAPSHOT</div><h2 style={styles.subtitle}>{props.snapshotUrl}</h2><p style={styles.body}>{props.snapshotDate}</p></Slide>
+        <Slide subtitle={subtitle}><div style={styles.kicker}>FULL SOURCE-BACKED SNAPSHOT</div><h2 style={styles.subtitle}>{props.snapshotUrl}</h2><p style={styles.body}>{props.snapshotDate}</p></Slide>
       </Sequence>
       <div style={styles.progressTrack}><div style={{ ...styles.progressFill, width: progress }} /></div>
     </AbsoluteFill>
   );
 }
 
-function DriverSlide({ drivers, subtitlesEnabled }: { drivers: string[]; subtitlesEnabled: boolean }) {
+function mediaSource(value: string) {
+  return value.startsWith("/") ? staticFile(value.slice(1)) : value;
+}
+
+function AnimatedScore({ score, fps }: { score: string; fps: number }) {
+  const frame = useCurrentFrame();
+  const scale = spring({ frame, fps, config: { damping: 12, stiffness: 120 } });
+  return <div style={{ ...styles.score, transform: `scale(${scale})` }}>{score}</div>;
+}
+
+function DriverSlide({ drivers, subtitle }: { drivers: string[]; subtitle?: string }) {
   const frame = useCurrentFrame();
   return (
-    <Slide subtitle={subtitlesEnabled ? "The top macro drivers are appearing one by one." : undefined}>
+    <Slide subtitle={subtitle}>
       <div style={styles.kicker}>TOP MACRO DRIVERS</div>
       {drivers.map((driver, index) => {
         const opacity = interpolate(frame, [index * 55, index * 55 + 20], [0, 1], {

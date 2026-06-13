@@ -1,0 +1,10 @@
+No audio is bundled with Macro FX Monitor.
+
+Add only royalty-free, generated, or personally owned music to this folder.
+For example, add `subtle-macro-bed.mp3` and set:
+
+  "musicEnabled": true,
+  "musicUrl": "/audio/subtle-macro-bed.mp3",
+  "musicVolume": 0.08
+
+Leave `musicEnabled` false or `musicUrl` empty to render silently.

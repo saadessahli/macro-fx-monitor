@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toPng } from "html-to-image";
 import {
   BarChart3, Check, Clipboard, Download, ExternalLink, Film, ImageIcon,
@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { DISCLAIMER, X_CONTENT_OPTIONS } from "@/lib/marketing-config";
 import { MARKETING_TOPIC_BANK } from "@/lib/marketing-plan";
+import { splitVoiceoverSubtitles } from "@/lib/marketing-video";
 import type {
   MacroSnapshot, MarketingDailyPlanItem, MarketingDraft, MarketingSettings,
   MarketingTone, ReplyOpportunity, ReplyOpportunityStatus, XContentType,
@@ -71,8 +72,15 @@ export function MarketingWorkspace({
     bookmarks: 0, profileVisits: 0, resultQuality: "okay", notes: "",
   });
   const [videoSlide, setVideoSlide] = useState(0);
+  const [videoSecond, setVideoSecond] = useState(0);
+  const [videoPlaying, setVideoPlaying] = useState(false);
+  const videoTimerRef = useRef<number | null>(null);
   const previewCardRef = useRef<HTMLDivElement>(null);
   const exportCardRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => () => {
+    if (videoTimerRef.current) window.clearInterval(videoTimerRef.current);
+  }, []);
 
   const filteredDrafts = useMemo(() => drafts.filter((draft) => {
     const query = draftSearch.toLowerCase();
@@ -257,10 +265,33 @@ export function MarketingWorkspace({
     link.href = URL.createObjectURL(blob);
     link.click();
     URL.revokeObjectURL(link.href);
+    setMessage("JSON configuration downloaded. This is not a video; render it locally with Remotion.");
+  }
+
+  function playVideoPreview() {
+    if (videoTimerRef.current) window.clearInterval(videoTimerRef.current);
+    setVideoSecond(0);
+    setVideoSlide(0);
+    setVideoPlaying(true);
+    const startedAt = Date.now();
+    videoTimerRef.current = window.setInterval(() => {
+      const elapsed = Math.min(30, (Date.now() - startedAt) / 1000);
+      setVideoSecond(elapsed);
+      setVideoSlide(elapsed < 2 ? 0 : elapsed < 6 ? 1 : elapsed < 14 ? 2 : elapsed < 22 ? 3 : 4);
+      if (elapsed >= 30) {
+        if (videoTimerRef.current) window.clearInterval(videoTimerRef.current);
+        videoTimerRef.current = null;
+        setVideoPlaying(false);
+      }
+    }, 200);
   }
 
   const card = active?.imageCardData;
   const video = active?.videoConfig;
+  const subtitleChunks = video ? splitVoiceoverSubtitles(video.voiceoverScript) : [];
+  const subtitleIndex = subtitleChunks.length
+    ? Math.min(subtitleChunks.length - 1, Math.floor((videoSecond / 30) * subtitleChunks.length))
+    : 0;
   const videoSlides = video ? [
     <><small>MACRO FX MONITOR</small><h3>{video.hook}</h3></>,
     <><small>DXY REGIME SCORE</small><strong>{video.score}</strong><h3>{video.bias}</h3></>,
@@ -408,13 +439,32 @@ export function MarketingWorkspace({
               <div className="draft-actions"><button type="button" onClick={downloadCard} disabled={busy === "image"}><Download size={15} /> Download 1600 x 900 PNG</button><button type="button" onClick={() => copy(editorText)}><Clipboard size={15} /> Copy paired post</button></div>
             </div>
             <div>
-              <div className="video-preview">
-                <div className="video-progress">{[0, 1, 2, 3, 4].map((item) => <button type="button" aria-label={`Show video scene ${item + 1}`} onClick={() => setVideoSlide(item)} className={item <= videoSlide ? "active" : ""} key={item} />)}</div>
-                <div className="video-slide">{videoSlides[videoSlide]}</div>
+              <div className="video-preview upgraded-video-preview">
+                <div className="video-timecode"><span>{videoSecond.toFixed(1)}s</span><span>30.0s</span></div>
+                <div className="video-progress timeline">{[0, 1, 2, 3, 4].map((item) => <button type="button" aria-label={`Show video scene ${item + 1}`} onClick={() => {
+                  const seconds = [0, 2, 6, 14, 22][item];
+                  setVideoSecond(seconds);
+                  setVideoSlide(item);
+                }} className={item <= videoSlide ? "active" : ""} key={item} />)}</div>
+                <div className={`video-slide video-scene-${videoSlide}`} key={videoSlide}>{videoSlides[videoSlide]}</div>
+                {video.subtitlesEnabled && subtitleChunks.length ? <div className="video-subtitle">{subtitleChunks[subtitleIndex]}</div> : null}
               </div>
-              <label className="draft-notes">Voiceover script<textarea readOnly value={video.voiceoverScript} /></label>
+              <div className="video-status-row">
+                <span className={video.subtitlesEnabled ? "enabled" : "disabled"}>Subtitles {video.subtitlesEnabled ? "enabled" : "disabled"}</span>
+                <span className={video.musicEnabled && video.musicUrl ? "enabled" : "disabled"}>Music {video.musicEnabled && video.musicUrl ? "enabled" : "disabled"}</span>
+              </div>
+              <button className="media-button" type="button" onClick={playVideoPreview} disabled={videoPlaying}><Film size={15} /> {videoPlaying ? "Playing 30-second preview..." : "Play animated preview"}</button>
+              <label className="draft-notes">Generated voiceover script
+                <textarea className="voiceover-script" readOnly value={video.voiceoverScript} />
+                <small>{video.voiceoverScript.trim().split(/\s+/).filter(Boolean).length} words | Target: 45-75 words</small>
+              </label>
               <div className="draft-actions"><button type="button" onClick={() => copy(video.voiceoverScript)}><Clipboard size={15} /> Copy voiceover</button><button type="button" onClick={downloadVideoConfig}><Download size={15} /> Download JSON config</button></div>
-              <p className="media-note"><Film size={14} /> MP4 rendering remains local with <code>npm run video:render</code>. JSON is configuration, not a video.</p>
+              <div className="local-render-panel">
+                <strong>Generate the real MP4 locally</strong>
+                <p>This JSON is not a video. Replace <code>remotion/sample-props.json</code> with it, then run:</p>
+                <div><code>npm run video:render</code><button type="button" onClick={() => copy("npm run video:render")}><Clipboard size={14} /> Copy command</button></div>
+                <p>MP4 output: <code>out/macro-fx-update.mp4</code></p>
+              </div>
             </div>
           </div>
           <div className="export-card-host" aria-hidden="true"><div className="x-card export-card full-size" ref={exportCardRef}>

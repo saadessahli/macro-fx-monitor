@@ -1,6 +1,7 @@
 import "server-only";
 
 import { supabaseRequest } from "@/lib/supabase";
+import { normalizeVideoConfig } from "@/lib/marketing-video";
 import type { MarketingDraft, MarketingDraftStatus } from "@/types";
 
 type MarketingDraftRow = {
@@ -43,16 +44,7 @@ const emptyScores: MarketingDraft["qualityScores"] = {
 function fromRow(row: MarketingDraftRow): MarketingDraft {
   const qualityScores = { ...emptyScores, ...(row.quality_scores ?? {}) };
   qualityScores.warnings = Array.isArray(qualityScores.warnings) ? qualityScores.warnings : [];
-  const videoConfig = {
-    ...row.video_config,
-    hook: row.video_config?.hook ?? "Here is what is driving the dollar today.",
-    voiceoverScript: row.video_config?.voiceoverScript ?? "",
-    musicEnabled: row.video_config?.musicEnabled ?? false,
-    musicUrl: row.video_config?.musicUrl ?? "",
-    musicVolume: row.video_config?.musicVolume ?? 0.08,
-    subtitlesEnabled: row.video_config?.subtitlesEnabled ?? true,
-    voiceoverUrl: row.video_config?.voiceoverUrl ?? "",
-  };
+  const videoConfig = normalizeVideoConfig(row.video_config);
   return {
     id: row.id,
     createdAt: row.created_at,
