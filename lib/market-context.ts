@@ -547,14 +547,31 @@ async function upsertNews(items: MarketNewsItem[]) {
 
 export async function refreshCalendarContext() {
   const providerName = (process.env.ECONOMIC_CALENDAR_PROVIDER ?? "").toLowerCase();
-  const provider = !calendarProviderEnabled()
-    ? fredCalendarFallback
-    : providerName === "finnhub" ? finnhubCalendarProvider : fmpCalendarProvider;
-  const events = await provider.fetchEvents();
+  if (!calendarProviderEnabled()) {
+    const events = await fredCalendarFallback.fetchEvents();
+    await upsertCalendar(events);
+    return {
+      events,
+      mode: "fred-fallback" as const,
+    };
+  }
+  const provider = providerName === "finnhub" ? finnhubCalendarProvider : fmpCalendarProvider;
+  let events: MarketCalendarEvent[];
+  try {
+    events = await provider.fetchEvents();
+  } catch (error) {
+    console.error("Calendar provider refresh failed; using FRED fallback", error);
+    events = await fredCalendarFallback.fetchEvents();
+    await upsertCalendar(events);
+    return {
+      events,
+      mode: "fred-fallback" as const,
+    };
+  }
   await upsertCalendar(events);
   return {
     events,
-    mode: provider.id === "fred-fallback" ? ("fred-fallback" as const) : ("provider" as const),
+    mode: "provider" as const,
   };
 }
 
@@ -597,10 +614,10 @@ export async function loadFreshMarketContext(): Promise<FreshMarketContext> {
     newsRefreshedAt: newsItems[0]?.refreshedAt ?? null,
     calendarApiEnabled: calendarProviderEnabled(),
     newsApiEnabled: newsProviderEnabled(),
-    calendarMode: calendarProviderEnabled()
+    calendarMode: calendarEvents.some((event) => !event.isManual && event.source !== "FRED Calendar")
       ? "provider"
       : calendarEvents.some((event) => !event.isManual) ? "fred-fallback" : "manual",
-    newsMode: newsProviderEnabled() ? "provider" : "manual",
+    newsMode: newsProviderEnabled() && newsItems.some((item) => !item.isManual) ? "provider" : "manual",
   };
 }
 
