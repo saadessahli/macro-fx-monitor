@@ -7,6 +7,7 @@ import { MARKETING_TOPIC_BANK } from "@/lib/marketing-plan";
 import { generateMacroSnapshot, loadRecentSnapshots } from "@/lib/snapshots";
 import { isSupabaseConfigured } from "@/lib/supabase";
 import type { MarketingTone, XContentType } from "@/types";
+import { scoreMarketingText } from "@/lib/marketing-quality";
 
 const contentTypes = new Set<XContentType>([
   "single",
@@ -44,6 +45,8 @@ export async function POST(request: Request) {
     topic?: string;
     tone?: MarketingTone;
     instruction?: string;
+    sourceText?: string;
+    status?: "draft" | "posted";
   } | null;
   if (!body?.contentType || !contentTypes.has(body.contentType)) {
     return NextResponse.json({ error: "Invalid content type." }, { status: 400 });
@@ -65,6 +68,20 @@ export async function POST(request: Request) {
     recentTexts: existingDrafts.map((item) => item.textContent),
     settings,
   });
+  const sourceText = String(body.sourceText ?? "").trim().slice(0, 4000);
+  if (sourceText) {
+    draft.textContent = sourceText;
+    draft.threadPosts = body.contentType === "thread"
+      ? sourceText.split(/\n-{3,}\n/).map((item) => item.trim()).filter(Boolean)
+      : [];
+    draft.qualityScores = scoreMarketingText(
+      sourceText,
+      existingDrafts.map((item) => item.textContent)
+    );
+    draft.status = body.status === "posted" ? "posted" : "draft";
+    draft.manuallyPostedAt = body.status === "posted" ? new Date().toISOString() : null;
+    draft.title = `${topic} | ${body.contentType === "thread" ? "Thread idea" : "Daily X idea"}`;
+  }
 
   try {
     const saved = await saveMarketingDraft(draft);

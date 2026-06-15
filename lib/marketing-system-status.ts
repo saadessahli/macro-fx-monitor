@@ -6,6 +6,7 @@ import { isMarketingAiConfigured } from "@/lib/marketing-ai";
 import type {
   MacroSnapshot,
   MarketingDraft,
+  FreshMarketContext,
   MarketingSettings,
   MarketingSystemStatus,
 } from "@/types";
@@ -17,6 +18,7 @@ export function buildMarketingSystemStatus({
   settings,
   planGeneratedAt,
   supabaseConnected,
+  marketContext,
 }: {
   snapshot: MacroSnapshot;
   snapshotSource: MarketingSystemStatus["snapshotSource"];
@@ -24,6 +26,7 @@ export function buildMarketingSystemStatus({
   settings: MarketingSettings;
   planGeneratedAt: string;
   supabaseConnected: boolean;
+  marketContext: FreshMarketContext;
 }): MarketingSystemStatus {
   const serverTime = new Date();
   const generatedAt = new Date(snapshot.generatedAt);
@@ -43,6 +46,13 @@ export function buildMarketingSystemStatus({
     latestDraftAt: drafts[0]?.createdAt ?? null,
     planGeneratedAt,
     nextCalendarEvent: snapshot.upcomingCalendar[0] ?? null,
+    calendarRefreshedAt: marketContext.calendarRefreshedAt,
+    newsRefreshedAt: marketContext.newsRefreshedAt,
+    latestManualContextAt: marketContext.manualNotes[0]?.createdAt ?? null,
+    calendarApiEnabled: marketContext.calendarApiEnabled,
+    newsApiEnabled: marketContext.newsApiEnabled,
+    fallbackContextMode:
+      marketContext.calendarMode !== "provider" || marketContext.newsMode !== "provider",
     supabaseConnected,
     buttondownConfigured: isButtondownConfigured(),
     aiEnabled: isMarketingAiConfigured(settings),

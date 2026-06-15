@@ -257,6 +257,88 @@ Requires external services:
 - OpenAI API: optional AI-written variations
 - X API: future discovery or posting features; neither is active now
 
+## Fresh market context
+
+The private X Marketing Agent combines four inputs before building the daily
+idea list:
+
+1. The latest stored macro snapshot
+2. The next seven days of economic calendar events
+3. Recent macro, USD, rates, oil, and geopolitical headlines
+4. Manual context entered by the administrator
+
+All provider requests run on the server. Provider keys and the Supabase service
+role key are never sent to the browser. The context tables use RLS and grant
+direct access only to Supabase's `service_role`.
+
+### Economic calendar
+
+The calendar provider interface currently supports Finnhub:
+
+```bash
+ECONOMIC_CALENDAR_ENABLED=true
+ECONOMIC_CALENDAR_PROVIDER=finnhub
+ECONOMIC_CALENDAR_API_KEY=
+```
+
+Without that key, **Refresh economic calendar** uses the existing FRED release
+calendar as a free fallback. You can also add a manual event such as “FOMC is
+on Wednesday.” Calendar entries store the event date, time, importance,
+category, previous/forecast/actual values when available, source, and a DXY
+explanation.
+
+### News and geopolitical context
+
+The news provider interface currently supports NewsAPI's server-side
+`/v2/everything` endpoint:
+
+```bash
+NEWS_ENABLED=true
+NEWS_PROVIDER=newsapi
+NEWS_API_KEY=
+```
+
+Without a news key, the agent remains fully usable in manual mode. Add a
+headline, geopolitical development, or note for today in **Fresh Market
+Context**. Developing geopolitical information is phrased conditionally as
+“markets are watching” and is used only to discuss oil, yields, risk sentiment,
+inflation expectations, and possible USD relevance.
+
+### Daily X ideas and repetition memory
+
+**Generate today's X ideas** creates up to ten editable ideas across educational
+concepts, event previews/reactions, headline or geopolitical context, the
+dashboard snapshot, confirmation/invalidation, risk management, and a thread
+idea. Every card shows its source context, reason for relevance, character
+count, risk score, and repetition score.
+
+The generator compares normalized wording, hooks, and topics with drafts and
+posted items from the previous 14 days. Lower-repetition ideas are prioritized,
+and similar copy receives a warning. Saving an idea adds it to the private draft
+library and therefore to future content memory. Marking an idea posted records
+that status locally; it does not connect to or publish through the X API.
+
+Automatic:
+
+- FRED data remains available to the snapshot and calendar fallback.
+- A configured calendar or news provider is queried only through admin refresh
+  actions or a future scheduled server job.
+- Opening the admin page reads the latest stored context and generates a fresh
+  in-memory idea list.
+
+Manual:
+
+- Refresh calendar or news context
+- Add administrator context
+- Generate or clear today's saved plan
+- Edit, copy, save, or mark an idea posted
+- Publish on X
+
+AI remains optional. With `AI_ENABLED=true`, a valid `OPENAI_API_KEY`, and the
+admin AI setting enabled, saved-draft variations use the existing AI adapter.
+The daily context plan always has a deterministic fallback and works without
+paid AI, calendar, or news APIs.
+
 ## Download a PNG
 
 In Visual Studio, choose an image card and select

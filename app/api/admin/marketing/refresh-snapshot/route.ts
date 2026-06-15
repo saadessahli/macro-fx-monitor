@@ -4,6 +4,7 @@ import { listMarketingDrafts } from "@/lib/marketing-drafts";
 import { buildDailyMarketingPlan } from "@/lib/marketing-plan";
 import { getMarketingSettings } from "@/lib/marketing-settings";
 import { buildMarketingSystemStatus } from "@/lib/marketing-system-status";
+import { loadFreshMarketContext, saveTodayPlan } from "@/lib/market-context";
 import {
   generateMacroSnapshot,
   saveMacroSnapshotForMarketing,
@@ -25,12 +26,22 @@ export async function POST() {
   try {
     const snapshot = await generateMacroSnapshot("weekly");
     await saveMacroSnapshotForMarketing(snapshot);
-    const [drafts, settings] = await Promise.all([
+    const [drafts, settings, marketContext] = await Promise.all([
       listMarketingDrafts(40),
       getMarketingSettings(),
+      loadFreshMarketContext(),
     ]);
     const planGeneratedAt = new Date().toISOString();
-    const plan = buildDailyMarketingPlan(snapshot, drafts, settings, new Date(planGeneratedAt));
+    const plan = buildDailyMarketingPlan(
+      snapshot,
+      drafts,
+      settings,
+      new Date(planGeneratedAt),
+      marketContext
+    );
+    await saveTodayPlan(plan, planGeneratedAt).catch((error) => {
+      console.error("Daily plan persistence is unavailable", error);
+    });
     const systemStatus = buildMarketingSystemStatus({
       snapshot,
       snapshotSource: "supabase",
@@ -38,6 +49,7 @@ export async function POST() {
       settings,
       planGeneratedAt,
       supabaseConnected: await checkSupabaseConnection(),
+      marketContext,
     });
 
     return NextResponse.json({
@@ -45,6 +57,7 @@ export async function POST() {
       snapshot,
       plan,
       systemStatus,
+      context: marketContext,
       message: "Latest macro snapshot refreshed for the marketing agent. No newsletter was published.",
     });
   } catch (error) {

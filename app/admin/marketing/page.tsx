@@ -6,6 +6,7 @@ import { isMarketingAiConfigured } from "@/lib/marketing-ai";
 import { buildDailyMarketingPlan } from "@/lib/marketing-plan";
 import { DEFAULT_MARKETING_SETTINGS, getMarketingSettings } from "@/lib/marketing-settings";
 import { buildMarketingSystemStatus } from "@/lib/marketing-system-status";
+import { loadFreshMarketContext, refreshCalendarContext } from "@/lib/market-context";
 import { listReplyOpportunities } from "@/lib/reply-opportunities";
 import { generateMacroSnapshot, loadLatestSnapshot } from "@/lib/snapshots";
 import { checkSupabaseConnection, isSupabaseConfigured } from "@/lib/supabase";
@@ -30,13 +31,31 @@ export default async function MarketingAgentPage() {
   const replies = isSupabaseConfigured()
     ? await listReplyOpportunities().catch(() => [])
     : [];
+  let marketContext = isSupabaseConfigured()
+    ? await loadFreshMarketContext()
+    : {
+        calendarEvents: [],
+        newsItems: [],
+        manualNotes: [],
+        calendarRefreshedAt: null,
+        newsRefreshedAt: null,
+        calendarApiEnabled: false,
+        newsApiEnabled: false,
+        calendarMode: "manual" as const,
+        newsMode: "manual" as const,
+      };
+  if (isSupabaseConfigured() && marketContext.calendarEvents.length === 0) {
+    await refreshCalendarContext().catch(() => null);
+    marketContext = await loadFreshMarketContext();
+  }
   const planGeneratedAt = new Date().toISOString();
   const supabaseConnected = await checkSupabaseConnection();
   const dailyPlan = buildDailyMarketingPlan(
     snapshot,
     drafts,
     settings,
-    new Date(planGeneratedAt)
+    new Date(planGeneratedAt),
+    marketContext
   );
   const systemStatus = buildMarketingSystemStatus({
     snapshot,
@@ -45,6 +64,7 @@ export default async function MarketingAgentPage() {
     settings,
     planGeneratedAt,
     supabaseConnected,
+    marketContext,
   });
 
   return (
@@ -67,6 +87,7 @@ export default async function MarketingAgentPage() {
         initialReplies={replies}
         dailyPlan={dailyPlan}
         initialSystemStatus={systemStatus}
+        initialMarketContext={marketContext}
         aiConfigured={isMarketingAiConfigured(settings)}
       />
     </div>

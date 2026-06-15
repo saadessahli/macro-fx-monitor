@@ -2,18 +2,18 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
-  BarChart3, Check, Clipboard, Download, ExternalLink, Film, ImageIcon,
-  LoaderCircle, MessageCircle, RefreshCw, Save, Search, Settings2, Sparkles,
-  Trash2,
+  BarChart3, CalendarDays, Check, Clipboard, Download, ExternalLink, Film,
+  ImageIcon, LoaderCircle, MessageCircle, Newspaper, Plus, RefreshCw, Save,
+  Search, Settings2, Sparkles, Trash2,
 } from "lucide-react";
 import { createMarketingCardPng } from "@/lib/marketing-card-export";
 import { DISCLAIMER, X_CONTENT_OPTIONS } from "@/lib/marketing-config";
 import { MARKETING_TOPIC_BANK } from "@/lib/marketing-plan";
 import { splitVoiceoverSubtitles } from "@/lib/marketing-video";
 import type {
-  MacroSnapshot, MarketingDailyPlanItem, MarketingDraft, MarketingSettings,
-  MarketingPlanStatus, MarketingSystemStatus, MarketingTone, ReplyOpportunity,
-  ReplyOpportunityStatus, XContentType,
+  FreshMarketContext, MacroSnapshot, ManualContextKind, MarketingDailyPlanItem,
+  MarketingDraft, MarketingSettings, MarketingPlanStatus, MarketingSystemStatus,
+  MarketingTone, ReplyOpportunity, ReplyOpportunityStatus, XContentType,
 } from "@/types";
 
 const imageTypes = [
@@ -44,6 +44,7 @@ export function MarketingWorkspace({
   initialReplies,
   dailyPlan,
   initialSystemStatus,
+  initialMarketContext,
   aiConfigured,
 }: {
   snapshot: MacroSnapshot;
@@ -52,6 +53,7 @@ export function MarketingWorkspace({
   initialReplies: ReplyOpportunity[];
   dailyPlan: MarketingDailyPlanItem[];
   initialSystemStatus: MarketingSystemStatus;
+  initialMarketContext: FreshMarketContext;
   aiConfigured: boolean;
 }) {
   const [currentSnapshot, setCurrentSnapshot] = useState(snapshot);
@@ -78,11 +80,18 @@ export function MarketingWorkspace({
   const [videoSlide, setVideoSlide] = useState(0);
   const [videoSecond, setVideoSecond] = useState(0);
   const [videoPlaying, setVideoPlaying] = useState(false);
-  const [suggestedPosts, setSuggestedPosts] = useState(() => dailyPlan.slice(0, 3).map((item) => ({
+  const [suggestedPosts, setSuggestedPosts] = useState(() => dailyPlan.map((item) => ({
     ...item,
     text: item.draftText,
   })));
   const [systemStatus, setSystemStatus] = useState(initialSystemStatus);
+  const [marketContext, setMarketContext] = useState(initialMarketContext);
+  const [contextForm, setContextForm] = useState({
+    kind: "note" as ManualContextKind,
+    title: "",
+    details: "",
+    contextDate: new Date().toISOString().slice(0, 10),
+  });
   const videoTimerRef = useRef<number | null>(null);
 
   useEffect(() => () => {
@@ -264,7 +273,7 @@ export function MarketingWorkspace({
   }
 
   function replaceSuggestedPosts(plan: MarketingDailyPlanItem[]) {
-    setSuggestedPosts(plan.slice(0, 3).map((item) => ({
+    setSuggestedPosts(plan.map((item) => ({
       ...item,
       text: item.draftText,
     })));
@@ -282,12 +291,110 @@ export function MarketingWorkspace({
       setCurrentSnapshot(data.snapshot);
       replaceSuggestedPosts(data.plan);
       setSystemStatus(data.systemStatus);
+      if (data.context) setMarketContext(data.context);
       setMessage(data.message);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Snapshot refresh failed.");
     } finally {
       setBusy("");
     }
+  }
+
+  async function refreshMarketContext(source: "calendar" | "news") {
+    setBusy(source);
+    setMessage("");
+    try {
+      const response = await fetch("/api/admin/marketing/context/refresh", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ source }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error ?? "Market context could not be refreshed.");
+      setMarketContext(data.context);
+      setSystemStatus((current) => ({
+        ...current,
+        calendarRefreshedAt: data.context.calendarRefreshedAt,
+        newsRefreshedAt: data.context.newsRefreshedAt,
+        calendarApiEnabled: data.context.calendarApiEnabled,
+        newsApiEnabled: data.context.newsApiEnabled,
+        fallbackContextMode:
+          data.context.calendarMode !== "provider" || data.context.newsMode !== "provider",
+      }));
+      setMessage(data.message);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Market context could not be refreshed.");
+    } finally {
+      setBusy("");
+    }
+  }
+
+  async function addContext() {
+    setBusy("context");
+    setMessage("");
+    try {
+      const response = await fetch("/api/admin/marketing/context", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(contextForm),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error ?? "Context could not be saved.");
+      setMarketContext(data.context);
+      setContextForm((current) => ({ ...current, title: "", details: "" }));
+      setSystemStatus((current) => ({
+        ...current,
+        latestManualContextAt: data.note.createdAt,
+        calendarRefreshedAt: data.context.calendarRefreshedAt,
+        newsRefreshedAt: data.context.newsRefreshedAt,
+      }));
+      setMessage("Manual context saved. Generate today's X ideas to use it.");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Context could not be saved.");
+    } finally {
+      setBusy("");
+    }
+  }
+
+  async function saveSuggestedIdea(
+    item: MarketingDailyPlanItem & { text: string },
+    status: "draft" | "posted"
+  ) {
+    setBusy(`idea-${item.id}`);
+    try {
+      const response = await fetch("/api/admin/marketing/drafts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contentType: item.contentType as XContentType,
+          topic: item.topic,
+          tone,
+          instruction: item.sourceContext ?? item.reason,
+          sourceText: item.text,
+          status,
+        }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error ?? "The idea could not be saved.");
+      setDrafts((current) => [data.draft, ...current]);
+      selectDraft(data.draft);
+      updateSuggestedPost(item.id, { status: status === "posted" ? "posted" : "draft" });
+      setSystemStatus((current) => ({ ...current, latestDraftAt: data.draft.createdAt }));
+      setMessage(status === "posted"
+        ? "Saved and marked as manually posted. Nothing was sent to X."
+        : "Idea saved to the private draft library.");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "The idea could not be saved.");
+    } finally {
+      setBusy("");
+    }
+  }
+
+  async function clearTodayPlan() {
+    const response = await fetch("/api/admin/marketing/plan", { method: "DELETE" });
+    if (!response.ok) return setMessage("Today's generated plan could not be cleared.");
+    setSuggestedPosts([]);
+    setMessage("Today's generated plan cleared. Saved drafts were not deleted.");
   }
 
   async function generateTodayPlan() {
@@ -396,12 +503,18 @@ export function MarketingWorkspace({
           <div><span>Latest saved draft</span><strong>{systemStatus.latestDraftAt ? new Date(systemStatus.latestDraftAt).toLocaleString() : "No saved drafts"}</strong></div>
           <div><span>Server time</span><strong>{new Date(systemStatus.serverTime).toLocaleString()}</strong></div>
           <div><span>Next macro calendar event</span><strong>{systemStatus.nextCalendarEvent ? `${systemStatus.nextCalendarEvent.date} | ${systemStatus.nextCalendarEvent.releaseName}` : "No event in stored window"}</strong></div>
+          <div><span>Calendar context refreshed</span><strong>{systemStatus.calendarRefreshedAt ? new Date(systemStatus.calendarRefreshedAt).toLocaleString() : "Not refreshed"}</strong></div>
+          <div><span>News context refreshed</span><strong>{systemStatus.newsRefreshedAt ? new Date(systemStatus.newsRefreshedAt).toLocaleString() : "Manual mode"}</strong></div>
+          <div><span>Latest manual context</span><strong>{systemStatus.latestManualContextAt ? new Date(systemStatus.latestManualContextAt).toLocaleString() : "None added"}</strong></div>
         </div>
         <div className="system-flags">
           <span className={systemStatus.supabaseConnected ? "enabled" : "disabled"}>Supabase {systemStatus.supabaseConnected ? "connected" : "not configured"}</span>
           <span className={systemStatus.buttondownConfigured ? "enabled" : "disabled"}>Buttondown {systemStatus.buttondownConfigured ? "configured" : "not configured"}</span>
           <span className={systemStatus.aiEnabled ? "enabled" : "disabled"}>AI generation {systemStatus.aiEnabled ? "enabled" : "disabled"}</span>
           <span className={systemStatus.xApiDiscoveryEnabled ? "enabled" : "disabled"}>X API discovery {systemStatus.xApiDiscoveryEnabled ? "enabled" : "disabled"}</span>
+          <span className={systemStatus.calendarApiEnabled ? "enabled" : "disabled"}>Calendar API {systemStatus.calendarApiEnabled ? "enabled" : marketContext.calendarMode}</span>
+          <span className={systemStatus.newsApiEnabled ? "enabled" : "disabled"}>News API {systemStatus.newsApiEnabled ? "enabled" : "manual mode"}</span>
+          <span className={systemStatus.fallbackContextMode ? "disabled" : "enabled"}>{systemStatus.fallbackContextMode ? "Fallback/manual context active" : "Provider context active"}</span>
         </div>
         <div className="draft-actions">
           <button type="button" onClick={refreshSnapshot} disabled={Boolean(busy)}>
@@ -427,16 +540,70 @@ export function MarketingWorkspace({
 
       {message ? <p className="marketing-message" role="status">{message}</p> : null}
 
+      <section className="admin-panel fresh-context-panel">
+        <div className="panel-heading">
+          <div><span className="eyebrow">Calendar, headlines, and manual notes</span><h2>Fresh Market Context</h2></div>
+          <Newspaper size={20} />
+        </div>
+        <p className="panel-copy">Context is used only to draft ideas for manual review. Headlines are treated as context, not verified trading signals.</p>
+        <div className="context-columns">
+          <div className="context-column">
+            <header><h3><CalendarDays size={16} /> Economic calendar</h3><button type="button" onClick={() => refreshMarketContext("calendar")} disabled={Boolean(busy)}>{busy === "calendar" ? <LoaderCircle className="spin" size={14} /> : <RefreshCw size={14} />} Refresh</button></header>
+            <small>{marketContext.calendarMode === "provider" ? "Provider data" : marketContext.calendarMode === "fred-fallback" ? "FRED fallback" : "Manual entries"}</small>
+            <div className="context-list">
+              {marketContext.calendarEvents.slice(0, 10).map((event) => (
+                <article key={event.id}>
+                  <header><strong>{event.eventName}</strong><em className={`importance ${event.importance}`}>{event.importance}</em></header>
+                  <p>{event.eventDate}{event.eventTime ? ` | ${event.eventTime}` : ""} | {event.category}</p>
+                  {(event.previous || event.forecast || event.actual) ? <small>Previous {event.previous || "n/a"} | Forecast {event.forecast || "n/a"} | Actual {event.actual || "pending"}</small> : null}
+                  <small>{event.whyItMatters}</small>
+                </article>
+              ))}
+              {!marketContext.calendarEvents.length ? <p className="empty-context">No calendar events stored. Refresh the fallback or add a manual event.</p> : null}
+            </div>
+          </div>
+          <div className="context-column">
+            <header><h3><Newspaper size={16} /> News and geopolitical context</h3><button type="button" onClick={() => refreshMarketContext("news")} disabled={Boolean(busy)}>{busy === "news" ? <LoaderCircle className="spin" size={14} /> : <RefreshCw size={14} />} Refresh</button></header>
+            <small>{marketContext.newsMode === "provider" ? "Provider headlines" : "Manual headline mode"}</small>
+            <div className="context-list">
+              {marketContext.newsItems.slice(0, 8).map((item) => (
+                <article key={item.id}>
+                  <header><strong>{item.headline}</strong><em className={`sentiment ${item.sentiment}`}>{item.sentiment}</em></header>
+                  <p>{item.source} | {new Date(item.publishedAt).toLocaleString()} | relevance {item.relevanceScore}</p>
+                  <small>{item.dxyAngle}</small>
+                  {item.url ? <a href={item.url} target="_blank" rel="noreferrer">Open source <ExternalLink size={12} /></a> : null}
+                </article>
+              ))}
+              {!marketContext.newsItems.length ? <p className="empty-context">No news API context is stored. Add a manual headline or geopolitical note below.</p> : null}
+            </div>
+          </div>
+        </div>
+        <div className="manual-context-form">
+          <div className="generate-grid">
+            <label>Context type<select value={contextForm.kind} onChange={(event) => setContextForm({ ...contextForm, kind: event.target.value as ManualContextKind })}><option value="note">Note for today</option><option value="event">Economic event</option><option value="headline">Headline</option><option value="geopolitical">Geopolitical event</option></select></label>
+            <label>Date<input type="date" value={contextForm.contextDate} onChange={(event) => setContextForm({ ...contextForm, contextDate: event.target.value })} /></label>
+            <label>Title<input value={contextForm.title} onChange={(event) => setContextForm({ ...contextForm, title: event.target.value })} placeholder="Markets are watching U.S.-Iran negotiations" /></label>
+          </div>
+          <label className="draft-notes">Details and DXY angle<textarea value={contextForm.details} onChange={(event) => setContextForm({ ...contextForm, details: event.target.value })} placeholder="Focus on possible effects through oil, risk sentiment, Treasury yields, and inflation expectations." /></label>
+          <button className="media-button" type="button" onClick={addContext} disabled={busy === "context" || !contextForm.title.trim()}>{busy === "context" ? <LoaderCircle className="spin" size={15} /> : <Plus size={15} />} Add manual context</button>
+        </div>
+      </section>
+
       <section className="admin-panel">
-        <div className="panel-heading"><div><span className="eyebrow">Daily workflow</span><h2>Today&apos;s suggested posts</h2></div><BarChart3 size={20} /></div>
-        <p className="panel-copy">Two to three rotating educational ideas based on the current snapshot. Edit before copying; nothing posts automatically.</p>
+        <div className="panel-heading"><div><span className="eyebrow">Context-aware daily workflow</span><h2>Today&apos;s X Content Ideas</h2></div><BarChart3 size={20} /></div>
+        <p className="panel-copy">Up to ten ideas using the snapshot, calendar, headlines, manual notes, and 14 days of content memory. Edit everything before posting.</p>
+        <div className="draft-actions">
+          <button type="button" onClick={generateTodayPlan} disabled={Boolean(busy)}><Sparkles size={15} /> Generate today&apos;s X ideas</button>
+          <button type="button" onClick={clearTodayPlan} disabled={!suggestedPosts.length}><Trash2 size={15} /> Clear today&apos;s generated plan</button>
+        </div>
         <div className="suggested-post-grid">
           {suggestedPosts.map((item) => (
             <article key={item.id}>
               <header>
-                <div><span>{item.topic}</span><time>{item.timeWindow}</time></div>
+                <div><span>{item.category ?? item.topic}</span><time>{item.timeWindow}</time></div>
                 <em className={`draft-status ${item.status}`}>{item.status}</em>
               </header>
+              <strong className="idea-topic">{item.topic}</strong>
               <textarea
                 value={item.text}
                 maxLength={280}
@@ -447,16 +614,20 @@ export function MarketingWorkspace({
               />
               <div className="suggested-post-meta">
                 <small>{item.text.length}/280 characters</small>
-                <small>{item.reason}</small>
+                <small>Risk {item.riskScore ?? 0}/100 | Repetition {item.repetitionScore ?? 0}/100</small>
               </div>
+              <p className="idea-reason"><b>Why today:</b> {item.reason}</p>
+              {item.sourceContext ? <p className="idea-source"><b>Source context:</b> {item.sourceContext}</p> : null}
+              {item.repetitionWarning ? <p className="repetition-warning">{item.repetitionWarning}</p> : null}
               <div className="draft-actions">
                 <button type="button" onClick={() => copySuggestedPost(item.id, item.text)}><Clipboard size={14} /> Copy</button>
+                <button type="button" onClick={() => saveSuggestedIdea(item, "draft")} disabled={busy === `idea-${item.id}`}><Save size={14} /> Save draft</button>
                 <button type="button" onClick={() => {
                   setContentType(item.contentType as XContentType);
                   setTopic(item.topic);
                   document.getElementById("marketing-generate")?.scrollIntoView({ behavior: "smooth" });
                 }}>Generate variations</button>
-                <button type="button" onClick={() => updateSuggestedPost(item.id, { status: "posted" })}><Check size={14} /> Posted</button>
+                <button type="button" onClick={() => saveSuggestedIdea(item, "posted")} disabled={busy === `idea-${item.id}`}><Check size={14} /> Mark posted</button>
                 <button type="button" onClick={() => updateSuggestedPost(item.id, { status: "skipped" })}>Skip</button>
               </div>
             </article>

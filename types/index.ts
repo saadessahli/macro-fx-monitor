@@ -209,6 +209,30 @@ export type MarketingTone = "professional" | "simple" | "analytical" | "direct";
 export type MarketingVariationStyle = "conservative" | "educational" | "engagement";
 export type MarketingResultQuality = "bad" | "okay" | "good" | "strong";
 export type MarketingPlanStatus = "draft" | "copied" | "posted" | "skipped";
+export type MarketContextCategory =
+  | "inflation"
+  | "Fed"
+  | "labor"
+  | "growth"
+  | "yields"
+  | "USD"
+  | "risk sentiment"
+  | "oil"
+  | "geopolitical"
+  | "other";
+export type MarketSentiment = "risk-on" | "risk-off" | "neutral" | "uncertain";
+export type ContextImportance = "low" | "medium" | "high";
+export type DxyRelevance = "low" | "medium" | "high";
+export type ManualContextKind = "note" | "event" | "headline" | "geopolitical";
+export type MarketingIdeaCategory =
+  | "educational macro concept"
+  | "event preview"
+  | "event reaction"
+  | "geopolitical context"
+  | "risk management reminder"
+  | "dashboard snapshot"
+  | "confirmation / invalidation"
+  | "thread idea";
 
 export type MarketingQualityScores = {
   clarity: number;
@@ -299,12 +323,74 @@ export type MarketingSettings = {
 export type MarketingDailyPlanItem = {
   id: string;
   contentType: XContentType | "reply" | "image" | "video";
+  category?: MarketingIdeaCategory;
   topic: string;
   timeWindow: string;
   draftText: string;
   reason: string;
+  sourceContext?: string;
+  riskScore?: number;
+  repetitionScore?: number;
+  repetitionWarning?: string | null;
   goal: "educate" | "engage" | "drive dashboard visits" | "build credibility";
   status: MarketingPlanStatus;
+};
+
+export type MarketCalendarEvent = {
+  id: string;
+  eventName: string;
+  country: string;
+  currency: string;
+  eventDate: string;
+  eventTime: string;
+  importance: ContextImportance;
+  category: MarketContextCategory;
+  previous: string;
+  forecast: string;
+  actual: string;
+  source: string;
+  sourceUrl: string;
+  whyItMatters: string;
+  isManual: boolean;
+  refreshedAt: string;
+};
+
+export type MarketNewsItem = {
+  id: string;
+  headline: string;
+  summary: string;
+  source: string;
+  url: string;
+  publishedAt: string;
+  topic: string;
+  relevanceScore: number;
+  macroImpactCategory: MarketContextCategory;
+  sentiment: MarketSentiment;
+  dxyRelevance: DxyRelevance;
+  dxyAngle: string;
+  isManual: boolean;
+  refreshedAt: string;
+};
+
+export type ManualContextNote = {
+  id: string;
+  kind: ManualContextKind;
+  title: string;
+  details: string;
+  contextDate: string;
+  createdAt: string;
+};
+
+export type FreshMarketContext = {
+  calendarEvents: MarketCalendarEvent[];
+  newsItems: MarketNewsItem[];
+  manualNotes: ManualContextNote[];
+  calendarRefreshedAt: string | null;
+  newsRefreshedAt: string | null;
+  calendarApiEnabled: boolean;
+  newsApiEnabled: boolean;
+  calendarMode: "provider" | "fred-fallback" | "manual";
+  newsMode: "provider" | "manual";
 };
 
 export type MarketingSystemStatus = {
@@ -319,6 +405,12 @@ export type MarketingSystemStatus = {
   latestDraftAt: string | null;
   planGeneratedAt: string;
   nextCalendarEvent: EconomicCalendarEvent | null;
+  calendarRefreshedAt: string | null;
+  newsRefreshedAt: string | null;
+  latestManualContextAt: string | null;
+  calendarApiEnabled: boolean;
+  newsApiEnabled: boolean;
+  fallbackContextMode: boolean;
   supabaseConnected: boolean;
   buttondownConfigured: boolean;
   aiEnabled: boolean;
