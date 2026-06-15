@@ -20,6 +20,7 @@ create index if not exists snapshots_generated_at_idx
 alter table public.snapshots enable row level security;
 
 revoke all on public.snapshots from anon, authenticated;
+grant select, insert, update, delete on public.snapshots to service_role;
 
 comment on table public.snapshots is
   'Generated weekly and monthly macro snapshots. Server-only access through the service role.';

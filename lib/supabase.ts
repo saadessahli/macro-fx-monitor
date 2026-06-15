@@ -21,7 +21,7 @@ export function isSupabaseConfigured() {
 export async function checkSupabaseConnection() {
   if (!isSupabaseConfigured()) return false;
   try {
-    await supabaseRequest("snapshots?select=id&limit=1");
+    await supabaseRequest("marketing_drafts?select=id&limit=1");
     return true;
   } catch {
     return false;
