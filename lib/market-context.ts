@@ -178,13 +178,17 @@ function fromNoteRow(row: NoteRow): ManualContextNote {
 export function calendarProviderEnabled() {
   return process.env.ECONOMIC_CALENDAR_ENABLED !== "false"
     && Boolean(process.env.ECONOMIC_CALENDAR_API_KEY)
-    && (process.env.ECONOMIC_CALENDAR_PROVIDER ?? "").toLowerCase() === "finnhub";
+    && ["fmp", "finnhub"].includes(
+      (process.env.ECONOMIC_CALENDAR_PROVIDER ?? "").toLowerCase()
+    );
 }
 
 export function newsProviderEnabled() {
   return process.env.NEWS_ENABLED !== "false"
     && Boolean(process.env.NEWS_API_KEY)
-    && (process.env.NEWS_PROVIDER ?? "").toLowerCase() === "newsapi";
+    && ["marketaux", "newsapi"].includes(
+      (process.env.NEWS_PROVIDER ?? "").toLowerCase()
+    );
 }
 
 export async function checkMarketContextStorage() {
@@ -240,6 +244,60 @@ async function fetchFinnhubCalendar(): Promise<MarketCalendarEvent[]> {
         actual: String(item.actual ?? ""),
         source: "Finnhub",
         sourceUrl: "https://finnhub.io/docs/api/economic-calendar",
+        whyItMatters: whyCalendarMatters(name, category),
+        isManual: false,
+        refreshedAt,
+      };
+    });
+}
+
+async function fetchFmpCalendar(): Promise<MarketCalendarEvent[]> {
+  if (!calendarProviderEnabled()) return [];
+  const from = new Date();
+  const to = new Date(from);
+  to.setUTCDate(to.getUTCDate() + 14);
+  const url = new URL("https://financialmodelingprep.com/stable/economic-calendar");
+  url.searchParams.set("from", toDate(from));
+  url.searchParams.set("to", toDate(to));
+  url.searchParams.set("apikey", process.env.ECONOMIC_CALENDAR_API_KEY as string);
+  const response = await fetch(url, {
+    cache: "no-store",
+    signal: AbortSignal.timeout(15_000),
+  });
+  if (!response.ok) throw new Error(`Calendar provider returned ${response.status}.`);
+  const payload = await response.json() as Array<Record<string, unknown>>;
+  if (!Array.isArray(payload)) throw new Error("Calendar provider returned an invalid response.");
+  const refreshedAt = new Date().toISOString();
+  return payload
+    .filter((item) => {
+      const country = String(item.country ?? "").toUpperCase();
+      const currency = String(item.currency ?? "").toUpperCase();
+      return country === "US" || currency === "USD";
+    })
+    .map((item) => {
+      const name = String(item.event ?? item.name ?? "US economic event");
+      const category = categoryFor(name);
+      const impact = String(item.impact ?? "").toLowerCase();
+      const dateTime = String(item.date ?? item.datetime ?? "");
+      const importance: ContextImportance = impact.includes("high")
+        ? "high"
+        : impact.includes("low") ? "low" : "medium";
+      return {
+        id: `fmp-${hashId(`${name}:${dateTime}`)}`,
+        eventName: name,
+        country: "US",
+        currency: String(item.currency ?? "USD"),
+        eventDate: dateTime.slice(0, 10) || toDate(from),
+        eventTime: dateTime.includes(" ")
+          ? dateTime.split(" ")[1]?.slice(0, 5) ?? ""
+          : dateTime.includes("T") ? dateTime.slice(11, 16) : "",
+        importance,
+        category,
+        previous: String(item.previous ?? ""),
+        forecast: String(item.estimate ?? item.forecast ?? ""),
+        actual: String(item.actual ?? ""),
+        source: "Financial Modeling Prep",
+        sourceUrl: "https://site.financialmodelingprep.com/developer/docs/stable/economics-calendar",
         whyItMatters: whyCalendarMatters(name, category),
         isManual: false,
         refreshedAt,
@@ -325,9 +383,101 @@ async function fetchNewsApi(): Promise<MarketNewsItem[]> {
   });
 }
 
+async function fetchMarketauxNewsQuery(
+  search: string,
+): Promise<MarketNewsItem[]> {
+  if (!newsProviderEnabled()) return [];
+  const from = new Date();
+  from.setUTCDate(from.getUTCDate() - 2);
+  const url = new URL("https://api.marketaux.com/v1/news/all");
+  url.searchParams.set("api_token", process.env.NEWS_API_KEY as string);
+  url.searchParams.set("language", "en");
+  url.searchParams.set("limit", "3");
+  url.searchParams.set("group_similar", "true");
+  url.searchParams.set("published_after", from.toISOString().slice(0, 19));
+  url.searchParams.set("search", search);
+  const response = await fetch(url, {
+    cache: "no-store",
+    signal: AbortSignal.timeout(15_000),
+  });
+  if (!response.ok) throw new Error(`News provider returned ${response.status}.`);
+  const payload = await response.json() as {
+    data?: Array<{
+      uuid?: string;
+      title?: string;
+      description?: string;
+      snippet?: string;
+      url?: string;
+      published_at?: string;
+      source?: string | { name?: string };
+      entities?: Array<{ sentiment_score?: number }>;
+    }>;
+  };
+  const refreshedAt = new Date().toISOString();
+  return (payload.data ?? []).flatMap((article) => {
+    const headline = String(article.title ?? "").trim();
+    if (!headline) return [];
+    const summary = String(article.description ?? article.snippet ?? "");
+    const classified = classifyNews(`${headline} ${summary}`);
+    const sentiments = (article.entities ?? [])
+      .map((entity) => entity.sentiment_score)
+      .filter((value): value is number => typeof value === "number");
+    const averageSentiment = sentiments.length
+      ? sentiments.reduce((total, value) => total + value, 0) / sentiments.length
+      : null;
+    const sentiment: MarketSentiment = averageSentiment === null
+      ? classified.sentiment
+      : averageSentiment <= -0.15 ? "risk-off"
+        : averageSentiment >= 0.15 ? "risk-on" : "neutral";
+    return [{
+      id: `marketaux-${article.uuid ?? hashId(article.url || headline)}`,
+      headline,
+      summary,
+      source: typeof article.source === "string"
+        ? article.source
+        : String(article.source?.name ?? "Marketaux source"),
+      url: String(article.url ?? ""),
+      publishedAt: String(article.published_at ?? refreshedAt),
+      topic: classified.category,
+      relevanceScore: classified.relevanceScore,
+      macroImpactCategory: classified.category,
+      sentiment,
+      dxyRelevance: classified.dxyRelevance,
+      dxyAngle: classified.angle,
+      isManual: false,
+      refreshedAt,
+    }];
+  });
+}
+
+async function fetchMarketauxNews(): Promise<MarketNewsItem[]> {
+  const [macroItems, geopoliticalItems] = await Promise.all([
+    fetchMarketauxNewsQuery(
+      'Fed | FOMC | Powell | inflation | "Treasury yields" | DXY | USD | recession | "labor market"',
+    ),
+    fetchMarketauxNewsQuery(
+      'Iran | Israel | oil | tariffs | sanctions | geopolitical | "trade deal"',
+    ),
+  ]);
+
+  const uniqueItems = new Map<string, MarketNewsItem>();
+  for (const item of [...macroItems, ...geopoliticalItems]) {
+    uniqueItems.set(item.url || item.id, item);
+  }
+
+  return [...uniqueItems.values()]
+    .sort((a, b) => b.publishedAt.localeCompare(a.publishedAt))
+    .slice(0, 8);
+}
+
 const finnhubCalendarProvider: CalendarProvider = {
   id: "finnhub",
   fetchEvents: fetchFinnhubCalendar,
+};
+
+const fmpCalendarProvider: CalendarProvider = {
+  id: "fmp",
+  fetchEvents: fetchFmpCalendar,
 };
 
 const fredCalendarFallback: CalendarProvider = {
@@ -338,6 +488,11 @@ const fredCalendarFallback: CalendarProvider = {
 const newsApiProvider: NewsProvider = {
   id: "newsapi",
   fetchItems: fetchNewsApi,
+};
+
+const marketauxNewsProvider: NewsProvider = {
+  id: "marketaux",
+  fetchItems: fetchMarketauxNews,
 };
 
 async function upsertCalendar(events: MarketCalendarEvent[]) {
@@ -391,20 +546,25 @@ async function upsertNews(items: MarketNewsItem[]) {
 }
 
 export async function refreshCalendarContext() {
-  const provider = calendarProviderEnabled()
-    ? finnhubCalendarProvider
-    : fredCalendarFallback;
+  const providerName = (process.env.ECONOMIC_CALENDAR_PROVIDER ?? "").toLowerCase();
+  const provider = !calendarProviderEnabled()
+    ? fredCalendarFallback
+    : providerName === "finnhub" ? finnhubCalendarProvider : fmpCalendarProvider;
   const events = await provider.fetchEvents();
   await upsertCalendar(events);
   return {
     events,
-    mode: provider.id === "finnhub" ? ("provider" as const) : ("fred-fallback" as const),
+    mode: provider.id === "fred-fallback" ? ("fred-fallback" as const) : ("provider" as const),
   };
 }
 
 export async function refreshNewsContext() {
   if (!newsProviderEnabled()) return { items: [], mode: "manual" as const };
-  const items = await newsApiProvider.fetchItems();
+  const providerName = (process.env.NEWS_PROVIDER ?? "").toLowerCase();
+  const provider = providerName === "newsapi"
+    ? newsApiProvider
+    : marketauxNewsProvider;
+  const items = await provider.fetchItems();
   await upsertNews(items);
   return { items, mode: "provider" as const };
 }

@@ -10,6 +10,7 @@ import {
   checkMarketContextStorage,
   loadFreshMarketContext,
   refreshCalendarContext,
+  refreshNewsContext,
 } from "@/lib/market-context";
 import { listReplyOpportunities } from "@/lib/reply-opportunities";
 import { generateMacroSnapshot, loadLatestSnapshot } from "@/lib/snapshots";
@@ -50,6 +51,14 @@ export default async function MarketingAgentPage() {
       };
   if (isSupabaseConfigured() && marketContext.calendarEvents.length === 0) {
     await refreshCalendarContext().catch(() => null);
+    marketContext = await loadFreshMarketContext();
+  }
+  if (
+    isSupabaseConfigured()
+    && marketContext.newsApiEnabled
+    && marketContext.newsItems.length === 0
+  ) {
+    await refreshNewsContext().catch(() => null);
     marketContext = await loadFreshMarketContext();
   }
   const planGeneratedAt = new Date().toISOString();

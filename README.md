@@ -273,13 +273,20 @@ direct access only to Supabase's `service_role`.
 
 ### Economic calendar
 
-The calendar provider interface currently supports Finnhub:
+The recommended calendar provider is Financial Modeling Prep (FMP). Finnhub
+remains supported as an alternative:
 
 ```bash
 ECONOMIC_CALENDAR_ENABLED=true
-ECONOMIC_CALENDAR_PROVIDER=finnhub
+ECONOMIC_CALENDAR_PROVIDER=fmp
 ECONOMIC_CALENDAR_API_KEY=
 ```
+
+Create an API key from the
+[FMP dashboard](https://site.financialmodelingprep.com/developer/docs/dashboard)
+and add these variables to the Vercel project. The calendar is used only inside
+the private admin workspace. Review the provider's current data-display and
+licensing terms before exposing raw provider data publicly.
 
 Without that key, **Refresh economic calendar** uses the existing FRED release
 calendar as a free fallback. You can also add a manual event such as “FOMC is
@@ -289,14 +296,22 @@ explanation.
 
 ### News and geopolitical context
 
-The news provider interface currently supports NewsAPI's server-side
-`/v2/everything` endpoint:
+The recommended news provider is Marketaux. Its free plan currently provides
+100 daily requests, three instant articles per request, and global finance-news
+metadata. NewsAPI remains supported for existing installations, but its free
+plan is intended for development and delayed news.
 
 ```bash
 NEWS_ENABLED=true
-NEWS_PROVIDER=newsapi
+NEWS_PROVIDER=marketaux
 NEWS_API_KEY=
 ```
+
+Create an API token from the
+[Marketaux account page](https://www.marketaux.com/account) and add these
+variables to Vercel. Each refresh makes two focused requests: one for U.S.
+macro/Fed/DXY news and one for geopolitical, oil, sanctions, tariffs, and trade
+developments. The agent deduplicates the combined results before storing them.
 
 Without a news key, the agent remains fully usable in manual mode. Add a
 headline, geopolitical development, or note for today in **Fresh Market
