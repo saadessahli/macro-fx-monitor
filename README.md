@@ -169,6 +169,94 @@ AI_MODEL=gpt-5-mini
 Without AI configuration, the deterministic source-backed generator remains
 available.
 
+## How freshness works
+
+### Snapshot freshness
+
+`/admin/marketing` first loads the latest weekly snapshot stored in Supabase.
+That snapshot contains the DXY score, bias, strongest drivers, recent macro
+releases, and a FRED release calendar captured when the snapshot was generated.
+If no stored snapshot is available, the page generates a live fallback from the
+configured macro sources, but that fallback is not durable until it is saved.
+
+The scheduled GitHub Actions workflows call `/api/cron/publish-snapshot`:
+
+- Weekly: Saturday at 13:00 UTC
+- Monthly: the first day of each month at 14:00 UTC
+
+Those schedules run only when the repository variable
+`SNAPSHOT_PUBLISHING_ENABLED` is `true` and the required secrets are configured.
+The cron route stores the snapshot and publishes through Buttondown.
+
+The admin-only **Refresh latest macro snapshot** button is different: it
+regenerates and stores only the weekly snapshot used by the marketing agent. It
+does not publish a newsletter, send email, or post on X. The System status panel
+marks a weekly snapshot stale after eight days.
+
+### Marketing draft freshness
+
+Saved drafts are loaded from the private Supabase `marketing_drafts` table.
+They do not rewrite themselves. Clicking **Generate as new draft** creates new
+copy from the latest stored snapshot, saved settings, and recent draft text.
+Recent text is passed to the scoring and optional AI layers to reduce repetition.
+
+AI-written variations require `AI_ENABLED`, `OPENAI_API_KEY`, and the admin AI
+setting. Without them, the deterministic source-backed fallback generator is
+used.
+
+### Daily content plan freshness
+
+The two or three items under **Today's suggested posts** are generated fresh
+when `/admin/marketing` is rendered. They are not loaded from saved drafts.
+Their topic rotation uses the current server date and avoids recently saved
+draft topics when possible.
+
+Clicking **Generate today's X plan** rebuilds the plan immediately from the
+latest snapshot, current settings, current server date, and recent drafts. The
+plan generation timestamp is shown in System status.
+
+The snapshot knows the scheduled US macro releases returned by FRED when it was
+generated. It does not have a general news feed and therefore does not
+automatically know breaking news, geopolitical developments, FOMC commentary
+outside the modeled data/calendar, or events such as US-Iran negotiations. That
+would require a licensed or reviewed news API, event feed, or manually supplied
+source text. X discovery additionally requires an implemented X API adapter and
+valid X API access; the current project does not perform automatic discovery.
+
+### Image and video freshness
+
+Image cards and video configurations come from the selected saved draft. A new
+draft receives image, voiceover, subtitle, and video fields based on the
+snapshot used at generation time. Existing saved drafts remain historical and
+do not update when a newer snapshot is generated.
+
+PNG export is generated in the browser from the selected draft. MP4 rendering
+is manual and local using the downloaded JSON and `npm run video:render`.
+
+### Automatic versus manual
+
+Automatic when configured:
+
+- FRED requests use short server caches, but stored snapshots change only when
+  a snapshot generation route runs.
+- GitHub Actions can generate, store, and publish weekly/monthly snapshots.
+- Opening the admin page generates a fresh daily suggestion plan.
+- Buttondown manages subscriber confirmation and newsletter delivery.
+
+Requires an admin click:
+
+- Refreshing the marketing-only snapshot
+- Rebuilding today's X plan without reloading the page
+- Generating and saving a new X draft
+- Copying or marking content as posted
+
+Requires external services:
+
+- Supabase: stored snapshots, drafts, settings, replies, and performance
+- Buttondown: subscriber confirmation and newsletter delivery
+- OpenAI API: optional AI-written variations
+- X API: future discovery or posting features; neither is active now
+
 ## Download a PNG
 
 In Visual Studio, choose an image card and select

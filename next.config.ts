@@ -3,6 +3,9 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   poweredByHeader: false,
   typedRoutes: false,
+  env: {
+    APP_BUILD_TIME: new Date().toISOString(),
+  },
   async headers() {
     return [
       {

@@ -307,6 +307,24 @@ export type MarketingDailyPlanItem = {
   status: MarketingPlanStatus;
 };
 
+export type MarketingSystemStatus = {
+  appVersion: string;
+  commitSha: string | null;
+  deployedAt: string | null;
+  serverTime: string;
+  snapshotDate: string;
+  snapshotGeneratedAt: string;
+  snapshotSource: "supabase" | "live-fallback";
+  snapshotStale: boolean;
+  latestDraftAt: string | null;
+  planGeneratedAt: string;
+  nextCalendarEvent: EconomicCalendarEvent | null;
+  supabaseConnected: boolean;
+  buttondownConfigured: boolean;
+  aiEnabled: boolean;
+  xApiDiscoveryEnabled: boolean;
+};
+
 export type ReplyOpportunityStatus = "new" | "copied" | "replied" | "skipped";
 
 export type ReplyOpportunity = {

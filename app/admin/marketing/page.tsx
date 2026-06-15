@@ -5,9 +5,10 @@ import { listMarketingDrafts } from "@/lib/marketing-drafts";
 import { isMarketingAiConfigured } from "@/lib/marketing-ai";
 import { buildDailyMarketingPlan } from "@/lib/marketing-plan";
 import { DEFAULT_MARKETING_SETTINGS, getMarketingSettings } from "@/lib/marketing-settings";
+import { buildMarketingSystemStatus } from "@/lib/marketing-system-status";
 import { listReplyOpportunities } from "@/lib/reply-opportunities";
 import { generateMacroSnapshot, loadLatestSnapshot } from "@/lib/snapshots";
-import { isSupabaseConfigured } from "@/lib/supabase";
+import { checkSupabaseConnection, isSupabaseConfigured } from "@/lib/supabase";
 
 export const metadata: Metadata = {
   title: "X Marketing Agent",
@@ -29,7 +30,22 @@ export default async function MarketingAgentPage() {
   const replies = isSupabaseConfigured()
     ? await listReplyOpportunities().catch(() => [])
     : [];
-  const dailyPlan = buildDailyMarketingPlan(snapshot, drafts, settings);
+  const planGeneratedAt = new Date().toISOString();
+  const supabaseConnected = await checkSupabaseConnection();
+  const dailyPlan = buildDailyMarketingPlan(
+    snapshot,
+    drafts,
+    settings,
+    new Date(planGeneratedAt)
+  );
+  const systemStatus = buildMarketingSystemStatus({
+    snapshot,
+    snapshotSource: stored ? "supabase" : "live-fallback",
+    drafts,
+    settings,
+    planGeneratedAt,
+    supabaseConnected,
+  });
 
   return (
     <div className="admin-page">
@@ -50,6 +66,7 @@ export default async function MarketingAgentPage() {
         initialSettings={settings}
         initialReplies={replies}
         dailyPlan={dailyPlan}
+        initialSystemStatus={systemStatus}
         aiConfigured={isMarketingAiConfigured(settings)}
       />
     </div>

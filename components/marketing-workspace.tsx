@@ -12,8 +12,8 @@ import { MARKETING_TOPIC_BANK } from "@/lib/marketing-plan";
 import { splitVoiceoverSubtitles } from "@/lib/marketing-video";
 import type {
   MacroSnapshot, MarketingDailyPlanItem, MarketingDraft, MarketingSettings,
-  MarketingPlanStatus, MarketingTone, ReplyOpportunity, ReplyOpportunityStatus,
-  XContentType,
+  MarketingPlanStatus, MarketingSystemStatus, MarketingTone, ReplyOpportunity,
+  ReplyOpportunityStatus, XContentType,
 } from "@/types";
 
 const imageTypes = [
@@ -43,6 +43,7 @@ export function MarketingWorkspace({
   initialSettings,
   initialReplies,
   dailyPlan,
+  initialSystemStatus,
   aiConfigured,
 }: {
   snapshot: MacroSnapshot;
@@ -50,8 +51,10 @@ export function MarketingWorkspace({
   initialSettings: MarketingSettings;
   initialReplies: ReplyOpportunity[];
   dailyPlan: MarketingDailyPlanItem[];
+  initialSystemStatus: MarketingSystemStatus;
   aiConfigured: boolean;
 }) {
+  const [currentSnapshot, setCurrentSnapshot] = useState(snapshot);
   const [contentType, setContentType] = useState<XContentType>("single");
   const [topic, setTopic] = useState(MARKETING_TOPIC_BANK[0]);
   const [tone, setTone] = useState<MarketingTone>(initialSettings.defaultTone);
@@ -79,6 +82,7 @@ export function MarketingWorkspace({
     ...item,
     text: item.draftText,
   })));
+  const [systemStatus, setSystemStatus] = useState(initialSystemStatus);
   const videoTimerRef = useRef<number | null>(null);
 
   useEffect(() => () => {
@@ -113,6 +117,10 @@ export function MarketingWorkspace({
     if (replace && active) await removeDraft(active, false);
     setDrafts((current) => [data.draft, ...current.filter((item) => !replace || item.id !== active?.id)]);
     selectDraft(data.draft);
+    setSystemStatus((current) => ({
+      ...current,
+      latestDraftAt: data.draft.createdAt,
+    }));
     setMessage(aiConfigured && settings.aiEnabled
       ? "Three AI-assisted variations generated and saved."
       : "Three adaptive fallback variations generated and saved.");
@@ -255,6 +263,50 @@ export function MarketingWorkspace({
     ));
   }
 
+  function replaceSuggestedPosts(plan: MarketingDailyPlanItem[]) {
+    setSuggestedPosts(plan.slice(0, 3).map((item) => ({
+      ...item,
+      text: item.draftText,
+    })));
+  }
+
+  async function refreshSnapshot() {
+    setBusy("snapshot");
+    setMessage("");
+    try {
+      const response = await fetch("/api/admin/marketing/refresh-snapshot", {
+        method: "POST",
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error ?? "Snapshot refresh failed.");
+      setCurrentSnapshot(data.snapshot);
+      replaceSuggestedPosts(data.plan);
+      setSystemStatus(data.systemStatus);
+      setMessage(data.message);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Snapshot refresh failed.");
+    } finally {
+      setBusy("");
+    }
+  }
+
+  async function generateTodayPlan() {
+    setBusy("plan");
+    setMessage("");
+    try {
+      const response = await fetch("/api/admin/marketing/plan", { method: "POST" });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error ?? "Today's X plan could not be generated.");
+      replaceSuggestedPosts(data.plan);
+      setSystemStatus(data.systemStatus);
+      setMessage("A fresh X plan was generated from the latest snapshot and recent drafts.");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Today's X plan could not be generated.");
+    } finally {
+      setBusy("");
+    }
+  }
+
   async function saveSettings() {
     setBusy("settings");
     const response = await fetch("/api/admin/marketing/settings", {
@@ -328,10 +380,46 @@ export function MarketingWorkspace({
 
   return (
     <div className="marketing-workspace command-center">
+      <section className="admin-panel system-status-panel">
+        <div className="panel-heading">
+          <div><span className="eyebrow">Freshness and configuration</span><h2>System status</h2></div>
+          <span className={`freshness-badge ${systemStatus.snapshotStale ? "stale" : "fresh"}`}>
+            {systemStatus.snapshotStale ? "Snapshot stale" : "Snapshot current"}
+          </span>
+        </div>
+        <div className="system-status-grid">
+          <div><span>App version</span><strong>{systemStatus.appVersion}{systemStatus.commitSha ? ` | ${systemStatus.commitSha}` : ""}</strong></div>
+          <div><span>Build / deploy time</span><strong>{systemStatus.deployedAt ? new Date(systemStatus.deployedAt).toLocaleString() : "Not exposed by host"}</strong></div>
+          <div><span>Latest snapshot</span><strong>{systemStatus.snapshotDate}</strong><small>{systemStatus.snapshotSource === "supabase" ? "Stored in Supabase" : "Generated live fallback"}</small></div>
+          <div><span>Snapshot generated</span><strong>{new Date(systemStatus.snapshotGeneratedAt).toLocaleString()}</strong></div>
+          <div><span>Today&apos;s plan generated</span><strong>{new Date(systemStatus.planGeneratedAt).toLocaleString()}</strong><small>Fresh plan, not a saved draft</small></div>
+          <div><span>Latest saved draft</span><strong>{systemStatus.latestDraftAt ? new Date(systemStatus.latestDraftAt).toLocaleString() : "No saved drafts"}</strong></div>
+          <div><span>Server time</span><strong>{new Date(systemStatus.serverTime).toLocaleString()}</strong></div>
+          <div><span>Next macro calendar event</span><strong>{systemStatus.nextCalendarEvent ? `${systemStatus.nextCalendarEvent.date} | ${systemStatus.nextCalendarEvent.releaseName}` : "No event in stored window"}</strong></div>
+        </div>
+        <div className="system-flags">
+          <span className={systemStatus.supabaseConnected ? "enabled" : "disabled"}>Supabase {systemStatus.supabaseConnected ? "connected" : "not configured"}</span>
+          <span className={systemStatus.buttondownConfigured ? "enabled" : "disabled"}>Buttondown {systemStatus.buttondownConfigured ? "configured" : "not configured"}</span>
+          <span className={systemStatus.aiEnabled ? "enabled" : "disabled"}>AI generation {systemStatus.aiEnabled ? "enabled" : "disabled"}</span>
+          <span className={systemStatus.xApiDiscoveryEnabled ? "enabled" : "disabled"}>X API discovery {systemStatus.xApiDiscoveryEnabled ? "enabled" : "disabled"}</span>
+        </div>
+        <div className="draft-actions">
+          <button type="button" onClick={refreshSnapshot} disabled={Boolean(busy)}>
+            {busy === "snapshot" ? <LoaderCircle className="spin" size={15} /> : <RefreshCw size={15} />}
+            Refresh latest macro snapshot
+          </button>
+          <button type="button" onClick={generateTodayPlan} disabled={Boolean(busy)}>
+            {busy === "plan" ? <LoaderCircle className="spin" size={15} /> : <Sparkles size={15} />}
+            Generate today&apos;s X plan
+          </button>
+        </div>
+        <p className="panel-copy">Snapshot refresh updates marketing data only. It does not publish a newsletter, send email, or post on X.</p>
+      </section>
+
       <section className="marketing-summary">
-        <div><span>Latest snapshot</span><strong>{snapshot.periodEnd}</strong></div>
-        <div><span>DXY score</span><strong>{snapshot.dxyScore === null ? "Unavailable" : `${snapshot.dxyScore > 0 ? "+" : ""}${snapshot.dxyScore.toFixed(1)} / 10`}</strong></div>
-        <div><span>Current bias</span><strong>{snapshot.dxyPlay.bias}</strong></div>
+        <div><span>Latest snapshot</span><strong>{currentSnapshot.periodEnd}</strong></div>
+        <div><span>DXY score</span><strong>{currentSnapshot.dxyScore === null ? "Unavailable" : `${currentSnapshot.dxyScore > 0 ? "+" : ""}${currentSnapshot.dxyScore.toFixed(1)} / 10`}</strong></div>
+        <div><span>Current bias</span><strong>{currentSnapshot.dxyPlay.bias}</strong></div>
         <div><span>Today&apos;s post target</span><strong>{settings.dailyPostTarget}</strong></div>
         <div><span>Reply opportunities</span><strong>{replies.filter((reply) => reply.status === "new").length} / {settings.dailyReplyTarget}</strong></div>
         <div><span>Writing engine</span><strong>{aiConfigured && settings.aiEnabled ? "AI + safety fallback" : "Adaptive fallback"}</strong></div>

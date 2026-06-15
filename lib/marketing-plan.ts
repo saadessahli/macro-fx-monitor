@@ -38,14 +38,19 @@ function suggestedCopy(topic: string, snapshot: MacroSnapshot) {
 export function buildDailyMarketingPlan(
   snapshot: MacroSnapshot,
   drafts: MarketingDraft[],
-  settings: MarketingSettings
+  settings: MarketingSettings,
+  forDate = new Date()
 ): MarketingDailyPlanItem[] {
   const recentTopics = new Set(drafts.slice(0, 8).map((draft) => draft.topic.toLowerCase()));
   const allowedTopics = MARKETING_TOPIC_BANK.filter((topic) =>
     !settings.blockedTopics.some((blocked) => topic.toLowerCase().includes(blocked.toLowerCase()))
   );
   const allowed = allowedTopics.length >= 2 ? allowedTopics : MARKETING_TOPIC_BANK;
-  const dayOffset = Math.floor(new Date(`${snapshot.periodEnd}T00:00:00Z`).getTime() / 86_400_000);
+  const dayOffset = Math.floor(Date.UTC(
+    forDate.getUTCFullYear(),
+    forDate.getUTCMonth(),
+    forDate.getUTCDate()
+  ) / 86_400_000);
   const rotated = allowed.map((_, index) => allowed[(index + dayOffset) % allowed.length]);
   const preferred = rotated.filter((topic) => settings.preferredTopics.some((item) =>
     topic.toLowerCase().includes(item.toLowerCase())

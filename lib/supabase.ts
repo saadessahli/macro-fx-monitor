@@ -18,6 +18,16 @@ export function isSupabaseConfigured() {
   return Boolean(url && key);
 }
 
+export async function checkSupabaseConnection() {
+  if (!isSupabaseConfigured()) return false;
+  try {
+    await supabaseRequest("snapshots?select=id&limit=1");
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export async function supabaseRequest<T>(path: string, options: SupabaseOptions = {}): Promise<T> {
   const { url, key } = getConfig();
   if (!url || !key) {

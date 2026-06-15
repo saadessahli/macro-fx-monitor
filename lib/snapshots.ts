@@ -115,6 +115,36 @@ export async function saveMacroSnapshot(snapshot: MacroSnapshot) {
   });
 }
 
+export async function saveMacroSnapshotForMarketing(snapshot: MacroSnapshot) {
+  const existing = await loadSnapshotById(snapshot.id);
+  const body = {
+    frequency: snapshot.frequency,
+    period_start: snapshot.periodStart,
+    period_end: snapshot.periodEnd,
+    generated_at: snapshot.generatedAt,
+    payload: snapshot,
+  };
+
+  if (existing) {
+    await supabaseRequest(`snapshots?id=eq.${snapshot.id}`, {
+      method: "PATCH",
+      prefer: "return=minimal",
+      body,
+    });
+    return;
+  }
+
+  await supabaseRequest("snapshots", {
+    method: "POST",
+    prefer: "return=minimal",
+    body: {
+      id: snapshot.id,
+      ...body,
+      delivery_status: "pending",
+    },
+  });
+}
+
 export async function loadSnapshotById(id: string) {
   const rows = await supabaseRequest<
     Array<{
