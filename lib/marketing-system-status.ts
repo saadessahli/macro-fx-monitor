@@ -19,6 +19,7 @@ export function buildMarketingSystemStatus({
   planGeneratedAt,
   supabaseConnected,
   marketContext,
+  marketContextStorageReady,
 }: {
   snapshot: MacroSnapshot;
   snapshotSource: MarketingSystemStatus["snapshotSource"];
@@ -27,6 +28,7 @@ export function buildMarketingSystemStatus({
   planGeneratedAt: string;
   supabaseConnected: boolean;
   marketContext: FreshMarketContext;
+  marketContextStorageReady: boolean;
 }): MarketingSystemStatus {
   const serverTime = new Date();
   const generatedAt = new Date(snapshot.generatedAt);
@@ -53,6 +55,7 @@ export function buildMarketingSystemStatus({
     newsApiEnabled: marketContext.newsApiEnabled,
     fallbackContextMode:
       marketContext.calendarMode !== "provider" || marketContext.newsMode !== "provider",
+    marketContextStorageReady,
     supabaseConnected,
     buttondownConfigured: isButtondownConfigured(),
     aiEnabled: isMarketingAiConfigured(settings),

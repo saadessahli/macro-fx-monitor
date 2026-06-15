@@ -411,6 +411,7 @@ export type MarketingSystemStatus = {
   calendarApiEnabled: boolean;
   newsApiEnabled: boolean;
   fallbackContextMode: boolean;
+  marketContextStorageReady: boolean;
   supabaseConnected: boolean;
   buttondownConfigured: boolean;
   aiEnabled: boolean;

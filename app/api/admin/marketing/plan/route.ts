@@ -9,6 +9,7 @@ import {
 import { buildMarketingSystemStatus } from "@/lib/marketing-system-status";
 import {
   clearTodayPlan,
+  checkMarketContextStorage,
   loadFreshMarketContext,
   saveTodayPlan,
 } from "@/lib/market-context";
@@ -64,6 +65,7 @@ export async function POST() {
       planGeneratedAt,
       supabaseConnected: await checkSupabaseConnection(),
       marketContext,
+      marketContextStorageReady: await checkMarketContextStorage(),
     });
 
     return NextResponse.json({ ok: true, plan, systemStatus, context: marketContext });

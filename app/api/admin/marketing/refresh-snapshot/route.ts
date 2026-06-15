@@ -4,7 +4,11 @@ import { listMarketingDrafts } from "@/lib/marketing-drafts";
 import { buildDailyMarketingPlan } from "@/lib/marketing-plan";
 import { getMarketingSettings } from "@/lib/marketing-settings";
 import { buildMarketingSystemStatus } from "@/lib/marketing-system-status";
-import { loadFreshMarketContext, saveTodayPlan } from "@/lib/market-context";
+import {
+  checkMarketContextStorage,
+  loadFreshMarketContext,
+  saveTodayPlan,
+} from "@/lib/market-context";
 import {
   generateMacroSnapshot,
   saveMacroSnapshotForMarketing,
@@ -50,6 +54,7 @@ export async function POST() {
       planGeneratedAt,
       supabaseConnected: await checkSupabaseConnection(),
       marketContext,
+      marketContextStorageReady: await checkMarketContextStorage(),
     });
 
     return NextResponse.json({

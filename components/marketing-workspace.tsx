@@ -514,6 +514,7 @@ export function MarketingWorkspace({
           <span className={systemStatus.xApiDiscoveryEnabled ? "enabled" : "disabled"}>X API discovery {systemStatus.xApiDiscoveryEnabled ? "enabled" : "disabled"}</span>
           <span className={systemStatus.calendarApiEnabled ? "enabled" : "disabled"}>Calendar API {systemStatus.calendarApiEnabled ? "enabled" : marketContext.calendarMode}</span>
           <span className={systemStatus.newsApiEnabled ? "enabled" : "disabled"}>News API {systemStatus.newsApiEnabled ? "enabled" : "manual mode"}</span>
+          <span className={systemStatus.marketContextStorageReady ? "enabled" : "disabled"}>Context storage {systemStatus.marketContextStorageReady ? "ready" : "migration required"}</span>
           <span className={systemStatus.fallbackContextMode ? "disabled" : "enabled"}>{systemStatus.fallbackContextMode ? "Fallback/manual context active" : "Provider context active"}</span>
         </div>
         <div className="draft-actions">

@@ -187,6 +187,19 @@ export function newsProviderEnabled() {
     && (process.env.NEWS_PROVIDER ?? "").toLowerCase() === "newsapi";
 }
 
+export async function checkMarketContextStorage() {
+  const tables = [
+    "economic_calendar_events",
+    "market_news_context",
+    "manual_market_context",
+    "marketing_daily_plans",
+  ];
+  const checks = await Promise.all(tables.map((table) =>
+    supabaseRequest(`${table}?select=*&limit=0`).then(() => true).catch(() => false)
+  ));
+  return checks.every(Boolean);
+}
+
 async function fetchFinnhubCalendar(): Promise<MarketCalendarEvent[]> {
   if (!calendarProviderEnabled()) return [];
   const from = new Date();

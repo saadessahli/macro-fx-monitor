@@ -6,7 +6,11 @@ import { isMarketingAiConfigured } from "@/lib/marketing-ai";
 import { buildDailyMarketingPlan } from "@/lib/marketing-plan";
 import { DEFAULT_MARKETING_SETTINGS, getMarketingSettings } from "@/lib/marketing-settings";
 import { buildMarketingSystemStatus } from "@/lib/marketing-system-status";
-import { loadFreshMarketContext, refreshCalendarContext } from "@/lib/market-context";
+import {
+  checkMarketContextStorage,
+  loadFreshMarketContext,
+  refreshCalendarContext,
+} from "@/lib/market-context";
 import { listReplyOpportunities } from "@/lib/reply-opportunities";
 import { generateMacroSnapshot, loadLatestSnapshot } from "@/lib/snapshots";
 import { checkSupabaseConnection, isSupabaseConfigured } from "@/lib/supabase";
@@ -50,6 +54,9 @@ export default async function MarketingAgentPage() {
   }
   const planGeneratedAt = new Date().toISOString();
   const supabaseConnected = await checkSupabaseConnection();
+  const marketContextStorageReady = isSupabaseConfigured()
+    ? await checkMarketContextStorage()
+    : false;
   const dailyPlan = buildDailyMarketingPlan(
     snapshot,
     drafts,
@@ -65,6 +72,7 @@ export default async function MarketingAgentPage() {
     planGeneratedAt,
     supabaseConnected,
     marketContext,
+    marketContextStorageReady,
   });
 
   return (
