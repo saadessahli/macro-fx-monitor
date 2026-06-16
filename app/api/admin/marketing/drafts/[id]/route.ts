@@ -59,7 +59,7 @@ export async function PATCH(
     await saveDraftVersion(current);
   }
 
-  if (body?.status === "ready" || body?.status === "approved") {
+  if (body?.status === "ready" || body?.status === "approved" || body?.status === "posted") {
     const settings = await getMarketingSettings().catch(() => DEFAULT_MARKETING_SETTINGS);
     const checkText = textContent ?? current.textContent;
     const checkScores = textContent !== undefined
