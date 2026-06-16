@@ -9,7 +9,6 @@ type ResetPasswordFormProps = {
   initialError?: string;
   supabaseUrl: string;
   supabaseAnonKey: string;
-  adminEmail?: string;
 };
 
 type RecoveryState = "booting" | "ready" | "submitting" | "success" | "error";
@@ -27,7 +26,6 @@ export function ResetPasswordForm({
   initialError,
   supabaseUrl,
   supabaseAnonKey,
-  adminEmail,
 }: ResetPasswordFormProps) {
   const router = useRouter();
   const supabase = useMemo(
@@ -85,14 +83,6 @@ export function ResetPasswordForm({
           throw new Error("The recovery link is invalid, expired, or missing its session.");
         }
 
-        const normalizedAdminEmail = adminEmail?.trim().toLowerCase();
-        const normalizedUserEmail = user.email?.trim().toLowerCase() ?? null;
-
-        if (normalizedAdminEmail && normalizedUserEmail !== normalizedAdminEmail) {
-          await supabase.auth.signOut();
-          throw new Error("This recovery link is authenticated, but not for the approved administrator account.");
-        }
-
         currentUrl.search = "";
         currentUrl.hash = "";
         window.history.replaceState({}, "", currentUrl.pathname);
@@ -115,7 +105,7 @@ export function ResetPasswordForm({
     return () => {
       cancelled = true;
     };
-  }, [adminEmail, supabase]);
+  }, [supabase]);
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();

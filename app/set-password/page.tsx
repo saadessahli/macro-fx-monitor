@@ -17,7 +17,6 @@ export default async function SetPasswordPage({
   const isConfigured = isSupabaseAuthConfigured();
   const supabaseUrl = process.env.SUPABASE_URL ?? "";
   const supabaseAnonKey = process.env.SUPABASE_ANON_KEY ?? "";
-  const adminEmail = process.env.ADMIN_EMAIL?.trim().toLowerCase();
 
   return (
     <main className="auth-shell">
@@ -32,7 +31,6 @@ export default async function SetPasswordPage({
             initialError={error}
             supabaseUrl={supabaseUrl}
             supabaseAnonKey={supabaseAnonKey}
-            adminEmail={adminEmail}
           />
         ) : (
           <p className="auth-error" role="alert">

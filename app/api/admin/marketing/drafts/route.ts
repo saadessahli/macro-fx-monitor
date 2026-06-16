@@ -48,7 +48,7 @@ export async function POST(request: Request) {
     tone?: MarketingTone;
     instruction?: string;
     sourceText?: string;
-    status?: "draft" | "posted";
+    status?: "draft" | "needs_review";
   } | null;
   if (!body?.contentType || !contentTypes.has(body.contentType)) {
     return NextResponse.json({ error: "Invalid content type." }, { status: 400 });
@@ -85,8 +85,8 @@ export async function POST(request: Request) {
       sourceText,
       existingDrafts.map((item) => item.textContent)
     );
-    draft.status = body.status === "posted" ? "posted" : "draft";
-    draft.manuallyPostedAt = body.status === "posted" ? new Date().toISOString() : null;
+    draft.status = body.status === "needs_review" ? "needs_review" : "draft";
+    draft.manuallyPostedAt = null;
     draft.title = `${topic} | ${body.contentType === "thread" ? "Thread idea" : "Daily X idea"}`;
   }
 

@@ -395,7 +395,7 @@ export function MarketingWorkspace({
 
   async function saveSuggestedIdea(
     item: MarketingDailyPlanItem & { text: string },
-    status: "draft" | "posted"
+    status: "draft" | "needs_review"
   ) {
     setBusy(`idea-${item.id}`);
     try {
@@ -415,10 +415,10 @@ export function MarketingWorkspace({
       if (!response.ok) throw new Error(data.error ?? "The idea could not be saved.");
       setDrafts((current) => [data.draft, ...current]);
       selectDraft(data.draft);
-      updateSuggestedPost(item.id, { status: status === "posted" ? "posted" : "draft" });
+      updateSuggestedPost(item.id, { status: "draft" });
       setSystemStatus((current) => ({ ...current, latestDraftAt: data.draft.createdAt }));
-      setMessage(status === "posted"
-        ? "Saved and marked as manually posted. Nothing was sent to X."
+      setMessage(status === "needs_review"
+        ? "Idea saved to the private draft library for review."
         : "Idea saved to the private draft library.");
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "The idea could not be saved.");
@@ -690,7 +690,7 @@ export function MarketingWorkspace({
                   setTopic(item.topic);
                   document.getElementById("marketing-generate")?.scrollIntoView({ behavior: "smooth" });
                 }}>Generate variations</button>
-                <button type="button" onClick={() => saveSuggestedIdea(item, "posted")} disabled={busy === `idea-${item.id}`}><Check size={14} /> Mark posted</button>
+                <button type="button" onClick={() => saveSuggestedIdea(item, "needs_review")} disabled={busy === `idea-${item.id}`}><Check size={14} /> Send to review</button>
                 <button type="button" onClick={() => updateSuggestedPost(item.id, { status: "skipped" })}>Skip</button>
               </div>
             </article>
@@ -1180,7 +1180,7 @@ export function MarketingWorkspace({
           Generate and edit the drafts using the section above — this calendar does not post anything automatically.
         </p>
         <div className="context-list">
-          {initialCalendar.map((day, i) => (
+          {initialCalendar.map((day) => (
             <article key={day.date}>
               <header>
                 <strong>{day.dayLabel} — {day.topic}</strong>

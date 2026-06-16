@@ -39,7 +39,8 @@ create table if not exists public.marketing_drafts (
   video_config jsonb not null,
   snapshot_id text not null,
   snapshot_date date not null,
-  status text not null default 'draft' check (status in ('draft', 'ready', 'posted')),
+  status text not null default 'draft'
+    check (status in ('draft', 'ready', 'needs_review', 'approved', 'rejected', 'posted')),
   manually_posted_at timestamptz,
   notes text not null default ''
 );
