@@ -10,6 +10,8 @@ import { createMarketingCardPng } from "@/lib/marketing-card-export";
 import { DISCLAIMER, X_CONTENT_OPTIONS } from "@/lib/marketing-config";
 import type { PerformanceSummary } from "@/lib/marketing-analytics";
 import type { CalendarDay, CalendarStatus } from "@/lib/marketing-calendar";
+import { analyzeCompetitorPosts } from "@/lib/marketing-competitor-intelligence";
+import type { CompetitorIntelligenceReport } from "@/lib/marketing-competitor-intelligence";
 import type { WeeklyGrowthReport } from "@/lib/marketing-weekly-report";
 import { MARKETING_TOPIC_BANK } from "@/lib/marketing-plan";
 import { getComplianceBlockers, scoreMarketingText } from "@/lib/marketing-quality";
@@ -125,6 +127,8 @@ export function MarketingWorkspace({
     details: "",
     contextDate: new Date().toISOString().slice(0, 10),
   });
+  const [competitorInputs, setCompetitorInputs] = useState<string[]>([""]);
+  const [competitorReport, setCompetitorReport] = useState<CompetitorIntelligenceReport | null>(null);
   const videoTimerRef = useRef<number | null>(null);
 
   useEffect(() => () => {
@@ -421,6 +425,26 @@ export function MarketingWorkspace({
     } finally {
       setBusy("");
     }
+  }
+
+  function updateCompetitorInput(index: number, value: string) {
+    setCompetitorInputs((current) => current.map((item, i) => i === index ? value : item));
+  }
+
+  function addCompetitorInput() {
+    setCompetitorInputs((current) => current.length < 5 ? [...current, ""] : current);
+  }
+
+  function removeCompetitorInput(index: number) {
+    setCompetitorInputs((current) => current.length > 1 ? current.filter((_, i) => i !== index) : [""]);
+  }
+
+  function runCompetitorAnalysis() {
+    const report = analyzeCompetitorPosts(competitorInputs);
+    setCompetitorReport(report);
+    setMessage(report.postCount > 0
+      ? `Analyzed ${report.postCount} post${report.postCount !== 1 ? "s" : ""}. Review the insights below.`
+      : "No post content found. Paste at least one post and try again.");
   }
 
   async function clearTodayPlan() {
@@ -785,6 +809,144 @@ export function MarketingWorkspace({
             </article>
           ))}
         </div>
+      </section>
+
+      <section className="admin-panel">
+        <div className="panel-heading">
+          <div><span className="eyebrow">Manual analysis only · no scraping · no API calls</span><h2>Competitor Intelligence</h2></div>
+          <BarChart3 size={20} />
+        </div>
+        <p className="panel-copy">
+          Paste 1–5 public macro or competitor posts. The system analyzes topics, hooks, content angles, gaps, and differentiation opportunities.
+          Analysis is rule-based and runs entirely in the browser. Nothing is copied, posted, or sent anywhere.
+        </p>
+        <div className="competitor-inputs">
+          {competitorInputs.map((value, idx) => (
+            <label key={idx} className="draft-notes">
+              Post {idx + 1}
+              <textarea
+                value={value}
+                onChange={(event) => updateCompetitorInput(idx, event.target.value)}
+                placeholder="Paste a competitor or macro post here…"
+                maxLength={2000}
+              />
+              {competitorInputs.length > 1 && (
+                <div className="draft-actions">
+                  <button type="button" onClick={() => removeCompetitorInput(idx)}>
+                    <Trash2 size={14} /> Remove post {idx + 1}
+                  </button>
+                </div>
+              )}
+            </label>
+          ))}
+        </div>
+        <div className="draft-actions">
+          {competitorInputs.length < 5 && (
+            <button type="button" onClick={addCompetitorInput}>
+              <Plus size={15} /> Add another post
+            </button>
+          )}
+          <button
+            type="button"
+            className="media-button"
+            onClick={runCompetitorAnalysis}
+            disabled={competitorInputs.every((v) => !v.trim())}
+          >
+            <Sparkles size={15} /> Analyze posts
+          </button>
+        </div>
+
+        {competitorReport && competitorReport.postCount > 0 && (
+          <div className="competitor-report">
+            <div className="context-columns">
+              <div className="context-column">
+                <h3>Common topics ({competitorReport.commonTopics.length})</h3>
+                {competitorReport.commonTopics.length ? (
+                  <ul className="clean-list">
+                    {competitorReport.commonTopics.map((topic) => <li key={topic}>{topic}</li>)}
+                  </ul>
+                ) : <p className="panel-copy">No recognizable macro topics detected.</p>}
+              </div>
+              <div className="context-column">
+                <h3>Strongest hooks detected</h3>
+                <div className="context-list">
+                  {competitorReport.strongestHooks.map((hook) => (
+                    <article key={hook.type}>
+                      <header>
+                        <strong>{hook.type}</strong>
+                        <em className={`draft-status ${hook.strength === "strong" ? "approved" : hook.strength === "moderate" ? "needs_review" : "draft"}`}>
+                          {hook.strength}
+                        </em>
+                      </header>
+                      <small>&ldquo;{hook.example}&rdquo;</small>
+                    </article>
+                  ))}
+                  {!competitorReport.strongestHooks.length && (
+                    <p className="panel-copy">No recognizable hook patterns detected.</p>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className="context-columns">
+              <div className="context-column">
+                <h3>Content angles used</h3>
+                {competitorReport.contentAngles.length ? (
+                  <ul className="clean-list">
+                    {competitorReport.contentAngles.map((angle) => <li key={angle}>{angle}</li>)}
+                  </ul>
+                ) : <p className="panel-copy">No specific content angles detected.</p>}
+              </div>
+              <div className="context-column">
+                <h3>What makes these posts engaging</h3>
+                <ul className="clean-list">
+                  {competitorReport.engagementFactors.map((factor) => <li key={factor}>{factor}</li>)}
+                </ul>
+              </div>
+            </div>
+
+            <div className="context-columns">
+              <div className="context-column">
+                <h3>Weak points and gaps</h3>
+                <ul className="quality-warnings">
+                  {[...competitorReport.weakPoints, ...competitorReport.gaps].map((item) => (
+                    <li key={item}>{item}</li>
+                  ))}
+                </ul>
+              </div>
+              <div className="context-column">
+                <h3>Opportunities for your DXY dashboard</h3>
+                <ul className="clean-list">
+                  {competitorReport.opportunities.map((opp) => <li key={opp}>{opp}</li>)}
+                </ul>
+              </div>
+            </div>
+
+            <h3>5 differentiated post ideas you could create</h3>
+            <div className="context-list">
+              {competitorReport.differentiatedPostIdeas.map((idea, idx) => (
+                <article key={idx}>
+                  <header><strong>Idea {idx + 1}</strong></header>
+                  <p>{idea}</p>
+                </article>
+              ))}
+            </div>
+
+            <h3>3 safe reply angles you could use manually</h3>
+            <div className="context-list">
+              {competitorReport.safeReplyAngles.map((angle, idx) => (
+                <article key={idx}>
+                  <header><strong>Reply angle {idx + 1}</strong></header>
+                  <p>{angle}</p>
+                </article>
+              ))}
+            </div>
+
+            <p className="idea-reason">
+              <strong>Compliance:</strong> {competitorReport.complianceNote}
+            </p>
+          </div>
+        )}
       </section>
 
       {active && card && video ? (

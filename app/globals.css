@@ -2472,6 +2472,18 @@ h3 {
   line-height: 1.55;
 }
 
+.competitor-inputs {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.competitor-report {
+  margin-top: 20px;
+  display: grid;
+  gap: 8px;
+}
+
 .legal-page {
   max-width: 980px;
 }
