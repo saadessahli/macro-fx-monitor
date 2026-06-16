@@ -1,4 +1,4 @@
-import type { MarketingQualityScores } from "@/types";
+import type { MarketingQualityScores, MarketingSettings } from "@/types";
 
 const advicePatterns = [
   /\b(buy|sell|long|short)\b/i,
@@ -74,5 +74,31 @@ export function scoreMarketingText(
 
 export function hasBlockingMarketingRisk(scores: MarketingQualityScores) {
   return scores.financialAdviceRisk >= 75;
+}
+
+export function getComplianceBlockers(
+  scores: MarketingQualityScores,
+  settings: Pick<MarketingSettings, "promotionalLevelLimit" | "blockedWords">,
+  text = ""
+): string[] {
+  const blockers: string[] = [];
+  if (scores.financialAdviceRisk >= 75) {
+    blockers.push(
+      "Financial advice or guaranteed-prediction language detected. Remove buy/sell/long/short/guaranteed language before marking ready."
+    );
+  }
+  if (scores.promotionalRisk > settings.promotionalLevelLimit) {
+    blockers.push(
+      `Promotional risk score (${scores.promotionalRisk}/100) exceeds the configured limit of ${settings.promotionalLevelLimit}/100.`
+    );
+  }
+  const lower = text.toLowerCase();
+  for (const word of settings.blockedWords) {
+    const trimmed = word.trim();
+    if (trimmed && lower.includes(trimmed.toLowerCase())) {
+      blockers.push(`Blocked word detected: "${trimmed}".`);
+    }
+  }
+  return blockers;
 }
 

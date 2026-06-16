@@ -1,9 +1,11 @@
 import { NextResponse } from "next/server";
 import { getAuthenticatedUser, isAdminEmail } from "@/lib/admin";
 import { createMarketingDraft } from "@/lib/marketing-agent";
+import { buildContextBrief } from "@/lib/marketing-context-brief";
 import { listMarketingDrafts, saveMarketingDraft } from "@/lib/marketing-drafts";
 import { DEFAULT_MARKETING_SETTINGS, getMarketingSettings } from "@/lib/marketing-settings";
 import { MARKETING_TOPIC_BANK } from "@/lib/marketing-plan";
+import { listPostPerformance } from "@/lib/post-performance";
 import { generateMacroSnapshot, loadRecentSnapshots } from "@/lib/snapshots";
 import { isSupabaseConfigured } from "@/lib/supabase";
 import type { MarketingTone, XContentType } from "@/types";
@@ -58,6 +60,10 @@ export async function POST(request: Request) {
   const snapshot = stored[0] ?? await generateMacroSnapshot("weekly");
   const existingDrafts = await listMarketingDrafts(40).catch(() => []);
   const settings = await getMarketingSettings().catch(() => DEFAULT_MARKETING_SETTINGS);
+  const performanceRecords = isSupabaseConfigured()
+    ? await listPostPerformance().catch(() => [])
+    : [];
+  const contextBrief = buildContextBrief(performanceRecords, existingDrafts);
   const topic = String(body.topic ?? MARKETING_TOPIC_BANK[0]).slice(0, 160);
   const tone = body.tone ?? settings.defaultTone;
   const instruction = String(body.instruction ?? "").slice(0, 1000);
@@ -67,6 +73,7 @@ export async function POST(request: Request) {
     instruction,
     recentTexts: existingDrafts.map((item) => item.textContent),
     settings,
+    contextBrief,
   });
   const sourceText = String(body.sourceText ?? "").trim().slice(0, 4000);
   if (sourceText) {

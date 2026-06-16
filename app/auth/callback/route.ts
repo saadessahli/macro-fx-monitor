@@ -16,7 +16,8 @@ export async function GET(request: Request) {
   const code = url.searchParams.get("code");
   const tokenHash = url.searchParams.get("token_hash");
   const type = url.searchParams.get("type") as EmailOtpType | null;
-  const next = url.searchParams.get("next") ?? "/admin/marketing";
+  const defaultNext = type === "recovery" || type === "invite" ? "/set-password" : "/admin/marketing";
+  const next = url.searchParams.get("next") ?? defaultNext;
   const safeNext = next.startsWith("/") && !next.startsWith("//") ? next : "/admin/marketing";
   const supabase = await createSupabaseAuthClient();
 

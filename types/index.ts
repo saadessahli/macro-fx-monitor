@@ -204,7 +204,7 @@ export type XContentType =
   | "weekly-recap"
   | "contrarian";
 
-export type MarketingDraftStatus = "draft" | "ready" | "posted";
+export type MarketingDraftStatus = "draft" | "needs_review" | "approved" | "rejected" | "ready" | "posted";
 export type MarketingTone = "professional" | "simple" | "analytical" | "direct";
 export type MarketingVariationStyle = "conservative" | "educational" | "engagement";
 export type MarketingResultQuality = "bad" | "okay" | "good" | "strong";

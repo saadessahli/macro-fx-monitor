@@ -8,7 +8,11 @@ import {
 } from "lucide-react";
 import { createMarketingCardPng } from "@/lib/marketing-card-export";
 import { DISCLAIMER, X_CONTENT_OPTIONS } from "@/lib/marketing-config";
+import type { PerformanceSummary } from "@/lib/marketing-analytics";
+import type { CalendarDay, CalendarStatus } from "@/lib/marketing-calendar";
+import type { WeeklyGrowthReport } from "@/lib/marketing-weekly-report";
 import { MARKETING_TOPIC_BANK } from "@/lib/marketing-plan";
+import { getComplianceBlockers, scoreMarketingText } from "@/lib/marketing-quality";
 import { splitVoiceoverSubtitles } from "@/lib/marketing-video";
 import type {
   FreshMarketContext, MacroSnapshot, ManualContextKind, MarketingDailyPlanItem,
@@ -37,6 +41,29 @@ function scoreClass(value: number, risk = false) {
   return healthy ? "good" : danger ? "danger" : "warning";
 }
 
+function statusLabel(status: string) {
+  return status.replace(/_/g, " ");
+}
+
+function qualityBadgeClass(quality: string): string {
+  if (quality === "strong" || quality === "good") return "approved";
+  if (quality === "bad") return "rejected";
+  return "needs_review";
+}
+
+function calendarStatusClass(status: CalendarStatus): string {
+  if (status === "posted") return "posted";
+  if (status === "approved") return "approved";
+  if (status === "needs-review") return "needs_review";
+  return "draft";
+}
+
+function calendarStatusLabel(status: CalendarStatus): string {
+  if (status === "draft-exists") return "draft";
+  if (status === "needs-review") return "needs review";
+  return status;
+}
+
 export function MarketingWorkspace({
   snapshot,
   initialDrafts,
@@ -45,6 +72,9 @@ export function MarketingWorkspace({
   dailyPlan,
   initialSystemStatus,
   initialMarketContext,
+  initialPerformanceSummary,
+  initialWeeklyReport,
+  initialCalendar,
   aiConfigured,
 }: {
   snapshot: MacroSnapshot;
@@ -54,6 +84,9 @@ export function MarketingWorkspace({
   dailyPlan: MarketingDailyPlanItem[];
   initialSystemStatus: MarketingSystemStatus;
   initialMarketContext: FreshMarketContext;
+  initialPerformanceSummary: PerformanceSummary;
+  initialWeeklyReport: WeeklyGrowthReport;
+  initialCalendar: CalendarDay[];
   aiConfigured: boolean;
 }) {
   const [currentSnapshot, setCurrentSnapshot] = useState(snapshot);
@@ -485,6 +518,11 @@ export function MarketingWorkspace({
     <><small>FULL SOURCE-BACKED SNAPSHOT</small><h3>{video.snapshotUrl}</h3><p>{DISCLAIMER}</p></>,
   ] : [];
 
+  const complianceBlockers = useMemo(() => {
+    if (!active) return [];
+    return getComplianceBlockers(scoreMarketingText(editorText), settings, editorText);
+  }, [active, editorText, settings]);
+
   return (
     <div className="marketing-workspace command-center">
       <section className="admin-panel system-status-panel">
@@ -658,7 +696,7 @@ export function MarketingWorkspace({
       {active ? (
         <>
           <section className="admin-panel">
-            <div className="panel-heading"><div><span className="eyebrow">Three variations</span><h2>{active.topic}</h2></div><span className={`draft-status ${active.status}`}>{active.status}</span></div>
+            <div className="panel-heading"><div><span className="eyebrow">Three variations</span><h2>{active.topic}</h2></div><span className={`draft-status ${active.status}`}>{statusLabel(active.status)}</span></div>
             <div className="variation-grid">
               {active.variations.map((variation) => (
                 <article key={variation.style}>
@@ -683,13 +721,33 @@ export function MarketingWorkspace({
               ].map(([label, value, risk]) => <div key={String(label)}><span>{label}</span><strong className={scoreClass(Number(value), Boolean(risk))}>{value}/100</strong></div>)}
             </div>
             {active.qualityScores.warnings.length ? <ul className="quality-warnings">{active.qualityScores.warnings.map((warning) => <li key={warning}>{warning}</li>)}</ul> : null}
+            <div className={`compliance-indicator ${complianceBlockers.length === 0 ? "ok" : "blocked"}`}>
+              <strong>Compliance:</strong>
+              <span>{complianceBlockers.length === 0 ? "OK" : "Needs revision"}</span>
+            </div>
+            {complianceBlockers.length > 0 && (
+              <ul className="compliance-blockers">
+                {complianceBlockers.map((blocker) => <li key={blocker}>{blocker}</li>)}
+              </ul>
+            )}
             <div className="improve-actions">{improvements.map(([action, label]) => <button type="button" key={action} onClick={() => improve(action)} disabled={Boolean(busy)}>{label}</button>)}</div>
             <div className="draft-actions">
               <button type="button" onClick={() => patchDraft({ textContent: editorText }, "Edits saved as a new version.")}><Save size={15} /> Save edits</button>
               <button type="button" onClick={duplicateDraft}><RefreshCw size={15} /> Duplicate</button>
               <button type="button" onClick={() => copy(editorText)}><Clipboard size={15} /> Copy for X</button>
-              <button type="button" onClick={() => patchDraft({ status: "ready" }, "Draft marked ready.")}><Check size={15} /> Mark ready</button>
-              <button type="button" onClick={() => patchDraft({ status: "posted" }, "Marked as manually posted.")}><Check size={15} /> Mark posted</button>
+              {(active.status === "draft" || active.status === "rejected") && (
+                <button type="button" onClick={() => patchDraft({ status: "needs_review" }, "Submitted for review.")} disabled={Boolean(busy)}><Check size={15} /> Submit for review</button>
+              )}
+              {active.status === "needs_review" && (
+                <>
+                  <button type="button" onClick={() => patchDraft({ status: "approved" }, "Draft approved.")} disabled={Boolean(busy)}><Check size={15} /> Approve</button>
+                  <button type="button" onClick={() => patchDraft({ status: "rejected" }, "Draft rejected.")} disabled={Boolean(busy)}>Reject</button>
+                  <button type="button" onClick={() => patchDraft({ status: "draft" }, "Returned to draft.")} disabled={Boolean(busy)}><RefreshCw size={15} /> Return to draft</button>
+                </>
+              )}
+              {(active.status === "approved" || active.status === "ready") && (
+                <button type="button" onClick={() => patchDraft({ status: "posted" }, "Marked as manually posted.")} disabled={Boolean(busy)}><Check size={15} /> Mark posted</button>
+              )}
             </div>
             <div className="generate-grid">
               <label>Posted X URL<input value={active.postedUrl} onChange={(event) => setActive({ ...active, postedUrl: event.target.value })} placeholder="https://x.com/..." /></label>
@@ -781,16 +839,204 @@ export function MarketingWorkspace({
         <div className="library-filters">
           <input value={draftSearch} onChange={(event) => setDraftSearch(event.target.value)} placeholder="Search title, topic, or copy" />
           <select value={draftType} onChange={(event) => setDraftType(event.target.value)}><option value="all">All content types</option>{X_CONTENT_OPTIONS.map((item) => <option value={item.value} key={item.value}>{item.label}</option>)}</select>
-          <select value={draftStatus} onChange={(event) => setDraftStatus(event.target.value)}><option value="all">All statuses</option><option value="draft">Draft</option><option value="ready">Ready</option><option value="posted">Posted</option></select>
+          <select value={draftStatus} onChange={(event) => setDraftStatus(event.target.value)}><option value="all">All statuses</option><option value="draft">Draft</option><option value="needs_review">Needs review</option><option value="approved">Approved</option><option value="rejected">Rejected</option><option value="ready">Ready (legacy)</option><option value="posted">Posted</option></select>
         </div>
         <div className="draft-library">{filteredDrafts.map((draft) => (
           <article className={active?.id === draft.id ? "active" : ""} key={draft.id}>
             <button type="button" className="draft-open" onClick={() => selectDraft(draft)}><span>{draft.contentType} | {draft.topic}</span><strong>{draft.title}</strong><small>{new Date(draft.createdAt).toLocaleString()} | v{draft.versionNumber}{draft.copiedAt ? " | copied" : ""}{draft.manuallyPostedAt ? " | posted" : ""}</small></button>
-            <span className={`draft-status ${draft.status}`}>{draft.status}</span>
+            <span className={`draft-status ${draft.status}`}>{statusLabel(draft.status)}</span>
             <button type="button" title="Copy" onClick={() => copy(fullCopy(draft), draft)}><Clipboard size={14} /></button>
             <button type="button" title="Delete" onClick={() => removeDraft(draft)}><Trash2 size={14} /></button>
           </article>
         ))}</div>
+      </section>
+
+      <section className="admin-panel">
+        <div className="panel-heading">
+          <div><span className="eyebrow">From recorded post data</span><h2>Performance Analytics</h2></div>
+          <BarChart3 size={20} />
+        </div>
+        {initialPerformanceSummary.totalTracked === 0 ? (
+          <p className="panel-copy">No performance data yet. Record your first post using the section below to start tracking.</p>
+        ) : (
+          <>
+            <div className="system-status-grid">
+              <div><span>Posts tracked</span><strong>{initialPerformanceSummary.totalTracked}</strong></div>
+              <div><span>Total impressions</span><strong>{initialPerformanceSummary.totalImpressions.toLocaleString()}</strong></div>
+              <div><span>Total likes</span><strong>{initialPerformanceSummary.totalLikes.toLocaleString()}</strong></div>
+              <div><span>Total reposts</span><strong>{initialPerformanceSummary.totalReposts.toLocaleString()}</strong></div>
+              <div><span>Total replies</span><strong>{initialPerformanceSummary.totalReplies.toLocaleString()}</strong></div>
+              <div><span>Total bookmarks</span><strong>{initialPerformanceSummary.totalBookmarks.toLocaleString()}</strong></div>
+              <div><span>Avg engagement</span><strong>{initialPerformanceSummary.avgEngagementRate.toFixed(1)}%</strong></div>
+              <div><span>Best topic</span><strong>{initialPerformanceSummary.bestTopic ?? "—"}</strong></div>
+            </div>
+            {initialPerformanceSummary.bestContentType && (
+              <p className="panel-copy">Best content type by impressions: <strong>{initialPerformanceSummary.bestContentType}</strong></p>
+            )}
+            {initialPerformanceSummary.highImpressionsLowEngagement.length > 0 && (
+              <>
+                <p className="panel-copy">High reach, low engagement — consider revising the CTA or format:</p>
+                <ul className="quality-warnings">
+                  {initialPerformanceSummary.highImpressionsLowEngagement.map((item) => (
+                    <li key={item.id}>{item.url || "No URL recorded"} — {item.impressions.toLocaleString()} impressions, {item.engagement.toFixed(1)}% engagement</li>
+                  ))}
+                </ul>
+              </>
+            )}
+            {initialPerformanceSummary.lowImpressionsGoodEngagement.length > 0 && (
+              <>
+                <p className="panel-copy">Low reach, strong engagement — worth repeating or reposting:</p>
+                <ul className="clean-list">
+                  {initialPerformanceSummary.lowImpressionsGoodEngagement.map((item) => (
+                    <li key={item.id}>{item.url || "No URL recorded"} — {item.impressions.toLocaleString()} impressions, rated {item.quality}</li>
+                  ))}
+                </ul>
+              </>
+            )}
+            <p className="idea-reason"><strong>Recommendation:</strong> {initialPerformanceSummary.recommendation}</p>
+          </>
+        )}
+      </section>
+
+      <section className="admin-panel">
+        <div className="panel-heading">
+          <div><span className="eyebrow">Based on all recorded post data</span><h2>Weekly Growth Report</h2></div>
+          <BarChart3 size={20} />
+        </div>
+        {!initialWeeklyReport.hasEnoughData ? (
+          <>
+            <p className="panel-copy">
+              Record at least 3 posts to unlock the full weekly growth report. Here are suggested starting experiments:
+            </p>
+            <div className="growth-plan">
+              {initialWeeklyReport.experiments.map((exp, i) => (
+                <article key={exp.suggestedTopic + i}>
+                  <div><span>Experiment {i + 1}</span><em className="draft-status draft">{exp.suggestedContentType}</em></div>
+                  <strong>{exp.title}</strong>
+                  <small>{exp.suggestedTopic}</small>
+                  <small>{exp.rationale}</small>
+                </article>
+              ))}
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="system-status-grid">
+              <div><span>This week impressions</span><strong>{initialWeeklyReport.thisWeekImpressions.toLocaleString()}</strong></div>
+              <div><span>Last week impressions</span><strong>{initialWeeklyReport.lastWeekImpressions.toLocaleString()}</strong></div>
+              <div>
+                <span>Impression trend</span>
+                <strong>
+                  {initialWeeklyReport.impressionsTrend === "up" ? "↑ Up" :
+                   initialWeeklyReport.impressionsTrend === "down" ? "↓ Down" :
+                   initialWeeklyReport.impressionsTrend === "flat" ? "→ Flat" : "Insufficient data"}
+                </strong>
+              </div>
+              <div><span>Data window</span><strong>{initialWeeklyReport.dataWindowDays} day{initialWeeklyReport.dataWindowDays !== 1 ? "s" : ""} tracked</strong></div>
+            </div>
+            {initialWeeklyReport.bestTopics.length > 0 && (
+              <div className="context-columns">
+                <div className="context-column">
+                  <h3>Best topics</h3>
+                  <div className="context-list">
+                    {initialWeeklyReport.bestTopics.map((t) => (
+                      <article key={t.topic}>
+                        <header>
+                          <strong>{t.topic}</strong>
+                          <em className={`draft-status ${qualityBadgeClass(t.topQuality)}`}>{t.topQuality}</em>
+                        </header>
+                        <small>{t.totalImpressions.toLocaleString()} impressions across {t.postCount} post{t.postCount !== 1 ? "s" : ""}</small>
+                        <small>{t.avgEngagementRate.toFixed(1)}% avg engagement</small>
+                      </article>
+                    ))}
+                  </div>
+                </div>
+                <div className="context-column">
+                  <h3>Weakest topics</h3>
+                  {initialWeeklyReport.weakestTopics.length === 0 ? (
+                    <p className="panel-copy">Post across more topics to see comparisons here.</p>
+                  ) : (
+                    <div className="context-list">
+                      {initialWeeklyReport.weakestTopics.map((t) => (
+                        <article key={t.topic}>
+                          <header>
+                            <strong>{t.topic}</strong>
+                            <em className={`draft-status ${qualityBadgeClass(t.topQuality)}`}>{t.topQuality}</em>
+                          </header>
+                          <small>{t.totalImpressions.toLocaleString()} impressions across {t.postCount} post{t.postCount !== 1 ? "s" : ""}</small>
+                          <small>{t.avgEngagementRate.toFixed(1)}% avg engagement</small>
+                        </article>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+            {initialWeeklyReport.bestContentType && (
+              <p className="panel-copy">
+                Best content type: <strong>{initialWeeklyReport.bestContentType}</strong>
+                {initialWeeklyReport.worstContentType ? ` · Weakest: ${initialWeeklyReport.worstContentType}` : ""}
+              </p>
+            )}
+            <div className="context-columns">
+              <div className="context-column">
+                <h3>Repeat next week</h3>
+                <ul className="clean-list">
+                  {initialWeeklyReport.repeatRecommendations.map((r) => <li key={r}>{r}</li>)}
+                </ul>
+              </div>
+              <div className="context-column">
+                <h3>Avoid next week</h3>
+                <ul className="quality-warnings">
+                  {initialWeeklyReport.avoidRecommendations.map((a) => <li key={a}>{a}</li>)}
+                </ul>
+              </div>
+            </div>
+            <p className="panel-copy">Recommended experiments for next week:</p>
+            <div className="growth-plan">
+              {initialWeeklyReport.experiments.map((exp, i) => (
+                <article key={exp.suggestedTopic + i}>
+                  <div><span>Experiment {i + 1}</span><em className="draft-status draft">{exp.suggestedContentType}</em></div>
+                  <strong>{exp.title}</strong>
+                  <small>{exp.suggestedTopic}</small>
+                  <small>{exp.rationale}</small>
+                </article>
+              ))}
+            </div>
+            <p className="idea-reason"><strong>Next week strategy:</strong> {initialWeeklyReport.nextWeekStrategy}</p>
+          </>
+        )}
+      </section>
+
+      <section className="admin-panel">
+        <div className="panel-heading">
+          <div><span className="eyebrow">Next 7 days · display only</span><h2>Content Calendar</h2></div>
+          <CalendarDays size={20} />
+        </div>
+        <p className="panel-copy">
+          Suggested content for the next 7 days based on your performance data and topic bank.
+          Generate and edit the drafts using the section above — this calendar does not post anything automatically.
+        </p>
+        <div className="context-list">
+          {initialCalendar.map((day, i) => (
+            <article key={day.date}>
+              <header>
+                <strong>{day.dayLabel} — {day.topic}</strong>
+                <div>
+                  <em className={`draft-status ${calendarStatusClass(day.status)}`}>
+                    {calendarStatusLabel(day.status)}
+                  </em>
+                  {" "}
+                  <em className="draft-status draft">{day.contentType}</em>
+                </div>
+              </header>
+              <small>{day.date}</small>
+              <small>Angle: {day.suggestedAngle}</small>
+              <small>CTA: {day.suggestedCta}</small>
+              <small>{day.reason}</small>
+            </article>
+          ))}
+        </div>
       </section>
 
       {active ? <section className="admin-panel">

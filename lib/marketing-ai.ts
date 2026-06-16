@@ -1,5 +1,6 @@
 import "server-only";
 
+import type { ContextBrief } from "@/lib/marketing-context-brief";
 import type {
   MacroSnapshot,
   MarketingSettings,
@@ -16,6 +17,7 @@ type AiGenerationInput = {
   snapshot: MacroSnapshot;
   recentTexts: string[];
   settings: MarketingSettings;
+  contextBrief?: ContextBrief;
 };
 
 export function isMarketingAiConfigured(settings?: MarketingSettings) {
@@ -60,6 +62,7 @@ export async function generateAiVariations(
             linkUsage: input.settings.linkUsageFrequency,
             disclaimer: input.settings.defaultDisclaimer,
             blockedWords: input.settings.blockedWords,
+            performanceContext: input.contextBrief?.compactText ?? null,
           }),
         },
       ],

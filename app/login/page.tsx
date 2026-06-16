@@ -3,7 +3,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { LockKeyhole } from "lucide-react";
 import { getAuthenticatedUser, isAdminEmail } from "@/lib/admin";
-import { login } from "./actions";
+import { login, requestPasswordReset } from "./actions";
 
 export const metadata: Metadata = {
   title: "Admin Login",
@@ -13,12 +13,12 @@ export const metadata: Metadata = {
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string }>;
+  searchParams: Promise<{ error?: string; message?: string }>;
 }) {
   const user = await getAuthenticatedUser();
   if (user && isAdminEmail(user.email)) redirect("/admin/marketing");
 
-  const { error } = await searchParams;
+  const { error, message } = await searchParams;
 
   return (
     <main className="auth-shell">
@@ -48,7 +48,11 @@ export default async function LoginPage({
             required
           />
           <button type="submit">Sign in</button>
+          <button type="submit" formAction={requestPasswordReset} formNoValidate className="auth-secondary-button">
+            Send password recovery email
+          </button>
           {error ? <p className="auth-error" role="alert">{error}</p> : null}
+          {message ? <p className="auth-success" role="status">{message}</p> : null}
         </form>
 
         <Link href="/" className="admin-back-link">

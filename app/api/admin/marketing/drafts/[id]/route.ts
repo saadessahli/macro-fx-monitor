@@ -7,10 +7,11 @@ import {
   saveDraftVersion,
   updateMarketingDraft,
 } from "@/lib/marketing-drafts";
-import { scoreMarketingText } from "@/lib/marketing-quality";
+import { getComplianceBlockers, scoreMarketingText } from "@/lib/marketing-quality";
+import { DEFAULT_MARKETING_SETTINGS, getMarketingSettings } from "@/lib/marketing-settings";
 import type { MarketingDraftStatus } from "@/types";
 
-const statuses = new Set<MarketingDraftStatus>(["draft", "ready", "posted"]);
+const statuses = new Set<MarketingDraftStatus>(["draft", "ready", "needs_review", "approved", "rejected", "posted"]);
 
 async function authorized() {
   const user = await getAuthenticatedUser();
@@ -43,12 +44,36 @@ export async function PATCH(
   if (body?.status && !statuses.has(body.status)) {
     return NextResponse.json({ error: "Invalid draft status." }, { status: 400 });
   }
+  if (body?.status && body.status !== current.status && current.status === "rejected") {
+    if (body.status === "approved" || body.status === "posted") {
+      return NextResponse.json(
+        { error: "A rejected draft must be returned to draft and revised before it can be approved or posted." },
+        { status: 422 }
+      );
+    }
+  }
   const textContent = body?.textContent === undefined
     ? undefined
     : String(body.textContent).slice(0, 6000);
   if (textContent !== undefined && textContent !== current.textContent) {
     await saveDraftVersion(current);
   }
+
+  if (body?.status === "ready" || body?.status === "approved") {
+    const settings = await getMarketingSettings().catch(() => DEFAULT_MARKETING_SETTINGS);
+    const checkText = textContent ?? current.textContent;
+    const checkScores = textContent !== undefined
+      ? scoreMarketingText(checkText)
+      : current.qualityScores;
+    const blockers = getComplianceBlockers(checkScores, settings, checkText);
+    if (blockers.length > 0) {
+      return NextResponse.json(
+        { error: `Draft cannot be marked ready. ${blockers[0]}`, blockers },
+        { status: 422 }
+      );
+    }
+  }
+
   const updated = await updateMarketingDraft(id, {
     status: body?.status,
     notes: body?.notes === undefined ? undefined : String(body.notes).slice(0, 2000),

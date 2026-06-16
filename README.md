@@ -94,10 +94,18 @@ NEXT_PUBLIC_CONTACT_EMAIL=
    `supabase/migrations/`.
 5. Sign in at `/login`.
 6. Open `/admin/marketing`.
+7. Add password reset redirect URLs in Supabase Auth so recovery links can land on `/set-password`.
 
 Anonymous visitors are redirected to `/login`. Authenticated accounts that do
 not exactly match `ADMIN_EMAIL` see `Access denied.` Admin pages use `noindex`,
 and robots rules exclude admin and authentication routes.
+
+Password recovery notes:
+
+- The app accepts Supabase recovery and invite links on `/set-password`.
+- Recovery links should redirect to `/set-password`.
+- Callback links using `/auth/callback?next=/set-password` are also supported.
+- Add both local and production reset URLs to Supabase Auth redirect URLs.
 
 Private tables use row-level security. The `anon` and `authenticated` roles
 have no direct table privileges. Drafts, settings, replies, performance data,

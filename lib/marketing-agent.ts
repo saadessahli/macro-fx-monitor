@@ -3,6 +3,7 @@ import "server-only";
 import { randomUUID } from "node:crypto";
 import { formatSignedNumber } from "@/lib/format";
 import { generateAiVariations } from "@/lib/marketing-ai";
+import type { ContextBrief } from "@/lib/marketing-context-brief";
 import { DISCLAIMER, X_CONTENT_OPTIONS } from "@/lib/marketing-config";
 import { scoreMarketingText } from "@/lib/marketing-quality";
 import { generateVideoVoiceover } from "@/lib/marketing-video";
@@ -75,9 +76,14 @@ function fallbackVariations(
   base: string,
   topic: string,
   snapshot: MacroSnapshot,
-  recentTexts: string[]
+  recentTexts: string[],
+  contextBrief?: ContextBrief
 ): MarketingVariation[] {
   const topDriver = snapshot.strongestDrivers[0]?.title ?? topic;
+  const todayEntry = contextBrief?.todayCalendarEntry;
+  // Use calendar-suggested angle and CTA only when the calendar topic matches the requested topic
+  const calendarMatch = todayEntry?.topic === topic;
+
   const candidates: Array<Pick<MarketingVariation, "style" | "text" | "whyItWorks">> = [
     {
       style: "conservative",
@@ -93,10 +99,16 @@ function fallbackVariations(
     },
     {
       style: "engagement",
-      text: withDisclaimer(
-        `What matters more for DXY right now: ${topDriver}, Fed expectations, or yields?\n\nThe current model bias is ${snapshot.dxyPlay.bias.toLowerCase()}, but confirmation still matters.`
-      ),
-      whyItWorks: "Uses a focused question without hype or a forced promotional link.",
+      text: calendarMatch
+        ? withDisclaimer(
+            `${todayEntry!.suggestedAngle}\n\nDXY bias: ${snapshot.dxyPlay.bias}. Key driver: ${topDriver}.\n\n${todayEntry!.suggestedCta}`
+          )
+        : withDisclaimer(
+            `What matters more for DXY right now: ${topDriver}, Fed expectations, or yields?\n\nThe current model bias is ${snapshot.dxyPlay.bias.toLowerCase()}, but confirmation still matters.`
+          ),
+      whyItWorks: calendarMatch
+        ? "Uses today's calendar angle and CTA — aligned with the weekly content plan."
+        : "Uses a focused question without hype or a forced promotional link.",
     },
   ];
 
@@ -117,6 +129,7 @@ export async function createMarketingDraft(
     instruction: string;
     recentTexts: string[];
     settings: MarketingSettings;
+    contextBrief?: ContextBrief;
   }
 ): Promise<MarketingDraft> {
   const now = new Date().toISOString();
@@ -159,6 +172,7 @@ export async function createMarketingDraft(
     snapshot,
     recentTexts: options.recentTexts,
     settings: options.settings,
+    contextBrief: options.contextBrief,
   }).catch(() => null);
   const variations = aiVariations
     ? aiVariations.map((variation) => ({
@@ -167,7 +181,7 @@ export async function createMarketingDraft(
         characterCount: variation.text.length,
         scores: scoreMarketingText(variation.text, options.recentTexts),
       }))
-    : fallbackVariations(textContent, options.topic, snapshot, options.recentTexts);
+    : fallbackVariations(textContent, options.topic, snapshot, options.recentTexts, options.contextBrief);
   const selectedText = variations[0]?.text ?? textContent;
   const qualityScores = scoreMarketingText(
     contentType === "thread" ? posts.join("\n\n") : selectedText,

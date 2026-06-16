@@ -12,6 +12,10 @@ import {
   refreshCalendarContext,
   refreshNewsContext,
 } from "@/lib/market-context";
+import { buildPerformanceSummary } from "@/lib/marketing-analytics";
+import { buildContentCalendar } from "@/lib/marketing-calendar";
+import { buildWeeklyGrowthReport } from "@/lib/marketing-weekly-report";
+import { listPostPerformance } from "@/lib/post-performance";
 import { listReplyOpportunities } from "@/lib/reply-opportunities";
 import { generateMacroSnapshot, loadLatestSnapshot } from "@/lib/snapshots";
 import { checkSupabaseConnection, isSupabaseConfigured } from "@/lib/supabase";
@@ -66,6 +70,12 @@ export default async function MarketingAgentPage() {
   const marketContextStorageReady = isSupabaseConfigured()
     ? await checkMarketContextStorage()
     : false;
+  const performanceRecords = isSupabaseConfigured()
+    ? await listPostPerformance().catch(() => [])
+    : [];
+  const performanceSummary = buildPerformanceSummary(performanceRecords, drafts);
+  const weeklyReport = buildWeeklyGrowthReport(performanceRecords, drafts);
+  const contentCalendar = buildContentCalendar(drafts, weeklyReport);
   const dailyPlan = buildDailyMarketingPlan(
     snapshot,
     drafts,
@@ -105,6 +115,9 @@ export default async function MarketingAgentPage() {
         dailyPlan={dailyPlan}
         initialSystemStatus={systemStatus}
         initialMarketContext={marketContext}
+        initialPerformanceSummary={performanceSummary}
+        initialWeeklyReport={weeklyReport}
+        initialCalendar={contentCalendar}
         aiConfigured={isMarketingAiConfigured(settings)}
       />
     </div>

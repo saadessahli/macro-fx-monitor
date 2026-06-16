@@ -1,8 +1,7 @@
 import type { Metadata } from "next";
-import { redirect } from "next/navigation";
 import { KeyRound } from "lucide-react";
-import { getAuthenticatedUser, isAdminEmail } from "@/lib/admin";
-import { setPassword } from "./actions";
+import { isSupabaseAuthConfigured } from "@/lib/supabase-auth";
+import { ResetPasswordForm } from "./reset-password-form";
 
 export const metadata: Metadata = {
   title: "Set Admin Password",
@@ -14,11 +13,11 @@ export default async function SetPasswordPage({
 }: {
   searchParams: Promise<{ error?: string }>;
 }) {
-  const user = await getAuthenticatedUser();
-  if (!user) redirect("/login?error=Open the invitation link before setting a password.");
-  if (!isAdminEmail(user.email)) redirect("/admin");
-
   const { error } = await searchParams;
+  const isConfigured = isSupabaseAuthConfigured();
+  const supabaseUrl = process.env.SUPABASE_URL ?? "";
+  const supabaseAnonKey = process.env.SUPABASE_ANON_KEY ?? "";
+  const adminEmail = process.env.ADMIN_EMAIL?.trim().toLowerCase();
 
   return (
     <main className="auth-shell">
@@ -26,30 +25,20 @@ export default async function SetPasswordPage({
         <div className="admin-mark"><KeyRound size={20} /></div>
         <span className="eyebrow">Admin activation</span>
         <h1>Set your password</h1>
-        <p>Use at least 12 characters. This password protects the private workspace.</p>
+        <p>Use at least 12 characters. This page accepts both invitation and password recovery links.</p>
 
-        <form action={setPassword} className="auth-form">
-          <label htmlFor="new-password">New password</label>
-          <input
-            id="new-password"
-            name="password"
-            type="password"
-            autoComplete="new-password"
-            minLength={12}
-            required
+        {isConfigured ? (
+          <ResetPasswordForm
+            initialError={error}
+            supabaseUrl={supabaseUrl}
+            supabaseAnonKey={supabaseAnonKey}
+            adminEmail={adminEmail}
           />
-          <label htmlFor="confirm-password">Confirm password</label>
-          <input
-            id="confirm-password"
-            name="confirmation"
-            type="password"
-            autoComplete="new-password"
-            minLength={12}
-            required
-          />
-          <button type="submit">Set password</button>
-          {error ? <p className="auth-error" role="alert">{error}</p> : null}
-        </form>
+        ) : (
+          <p className="auth-error" role="alert">
+            Supabase Auth is not configured yet.
+          </p>
+        )}
       </section>
     </main>
   );

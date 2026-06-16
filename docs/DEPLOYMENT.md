@@ -36,6 +36,11 @@ For the private admin workspace:
 3. Copy the project's anon key.
 4. Save it as `SUPABASE_ANON_KEY`.
 5. Save the administrator's exact email as `ADMIN_EMAIL`.
+6. In Supabase Auth URL Configuration, allow:
+   - `http://localhost:3000/set-password`
+   - `http://localhost:3000/auth/callback`
+   - your production `/set-password` URL
+   - your production `/auth/callback` URL
 
 The login flow runs on the server. Do not use a `NEXT_PUBLIC_` prefix for
 `ADMIN_EMAIL`, `SUPABASE_ANON_KEY`, or the service-role key.
